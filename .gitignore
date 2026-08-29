@@ -1,0 +1,56 @@
+# Node
+node_modules/
+.npm/
+.pnpm-store/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Build outputs
+/dist/
+/build/
+/.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Frontend (React / Vite / CRA)
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.cache/
+frontend/coverage/
+frontend/.vite/
+
+# Backend
+backend/node_modules/
+backend/dist/
+backend/build/
+backend/.cache/
+backend/coverage/
+
+# Supabase
+.supabase/
+*.sql
+supabase/.temp/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Misc
+*.local
