@@ -20,27 +20,24 @@ Además, estará diseñado para ser utilizado en ferias y eventos, soportando el
 
 ---
 
-## Tecnologías (a definir)
-El stack tecnológico aún está en proceso de análisis. Se evaluarán opciones que permitan:  
-- Frontend responsivo.  
-- Backend con soporte multiusuario.  
-- Base de datos en la nube.  
-- Despliegue accesible desde cualquier dispositivo.  
+## Tecnologías
+- Frontend: React.
+- Backend: NestJS.
+- Autenticación, base de datos PostgreSQL y almacenamiento de imágenes: Supabase.
 
-La definición final de tecnologías se incorporará en próximas versiones de este README.
+La configuración de despliegue se definirá durante la implementación.
 
 ---
 
 ## Instalación y Uso
 ⚠️ **Nota importante:**  
-Este es el **README inicial** del proyecto.  
-Las instrucciones de instalación y uso se agregarán una vez que el stack tecnológico esté definido y el desarrollo inicial se encuentre avanzado.  
+Las instrucciones de instalación y uso se agregarán durante el desarrollo inicial.
 
 ---
 
 ## Funcionalidades Principales (MVP)
 - Gestión de productos (costos, estado, ganancia).  
-- Registro de ventas y gastos.  
+- Registro de ventas mayoristas y minoristas, y de gastos.
 - Reportes mensuales y por producto.  
 - Dashboard básico con métricas clave.  
 - Acceso multiplataforma y uso colaborativo.  

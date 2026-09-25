@@ -6,13 +6,13 @@
 sequenceDiagram
     actor A as Administrador
     participant R as React
-    participant E as Express
+    participant E as API NestJS
     participant S as Servicio de ventas
     participant DB as PostgreSQL
 
-    A->>R: Confirma la venta
-    R->>E: POST /sales + JWT
-    E->>E: Verificar usuario y validar datos
+    A->>R: Selecciona MAYORISTA o MINORISTA y confirma
+    R->>E: POST /sales (saleType, detalles) + JWT
+    E->>E: Verificar usuario y validar saleType y detalles
     E->>S: registrarVenta(datos, usuario)
 
     S->>DB: Iniciar transacción
@@ -26,7 +26,7 @@ sequenceDiagram
         E-->>R: 409 Stock insuficiente
         R-->>A: Informa productos sin stock
     else Stock suficiente
-        S->>DB: Crear venta
+        S->>DB: Crear venta con sale_type
         S->>DB: Crear detalles
         S->>DB: Crear movimientos negativos
         S->>DB: Confirmar transacción

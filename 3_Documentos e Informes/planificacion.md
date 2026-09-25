@@ -9,7 +9,7 @@ Semana 1 — Diseño técnico [14/9 - 18/9]
 - Contrato inicial de API.
 
 Semana 2 — Fundaciones [21/9 - 25/9]
-- Configurar React y Express.
+- Configurar React y NestJS.
 - Crear proyecto Supabase.
 - Configurar entornos.
 - Crear migraciones iniciales.
@@ -33,6 +33,7 @@ Semana 4 — Stock [5/10 - 9/10]
 
 Semana 5 — Ventas [12/10 - 16/10]
 - Cabecera y detalles.
+- Tipo de venta obligatorio: mayorista o minorista.
 - Selección del costo.
 - Descuento transaccional.
 - Pruebas de concurrencia.
@@ -50,6 +51,7 @@ Semana 7 — Gastos y dashboard [26/10 - 30/10]
 - Registro y anulación.
 - Resumen por período.
 - Ingresos, costos, margen, gastos y resultado neto.
+- Desglose de ventas por tipo y conciliación con el total general.
 - Pruebas móviles.
 
 Semana 8 — Cierre [2/11 - 6/11]

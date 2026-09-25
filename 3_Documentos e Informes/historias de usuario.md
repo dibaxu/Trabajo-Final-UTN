@@ -128,7 +128,7 @@ Criterios:
 - No se pueden vender productos inactivos.
 - No se puede vender una cantidad superior al stock disponible.
 - Un mismo producto no debe aparecer duplicado; si se selecciona nuevamente, se acumula la cantidad.
-- Se debe indicar si es venta mayorista o minorista.
+- Se debe indicar si la venta es MAYORISTA o MINORISTA; el tipo es obligatorio para toda la venta y queda guardado en su cabecera.
 - Se calcula el subtotal de cada detalle y el total de la venta.
 - Se guarda el costo unitario vigente como dato histórico.
 - Se calcula el margen bruto:
@@ -167,7 +167,7 @@ Criterios:
 - Se permite seleccionar fecha desde y fecha hasta.
 - Se muestran como mínimo:
   - ingresos por ventas;
-  - tipo de venta (mayorista / minorista)
+  - desglose de ingresos, costo de productos vendidos, margen bruto y unidades por tipo de venta (mayorista / minorista);
   - costo de productos vendidos;
   - margen bruto;
   - gastos operativos;
@@ -178,6 +178,7 @@ Criterios:
 - Los resultados cambian al modificar el período.
 - Si no existen operaciones, se muestran valores cero.
 - Los totales coinciden con las ventas y gastos consultables para el mismo período.
+- La suma de ambos tipos coincide con el total de ventas del período, considerando anulaciones y devoluciones.
 - La zona horaria y los límites de fecha se aplican uniformemente.
 - Operadores pueden acceder solamente si se decide habilitar ese permiso.
 

@@ -3,17 +3,18 @@
 ## Preguntas
 
 Cómo se calcula el precio sugerido:
+
 - multiplicador??
 - porcentaje de margen??
 - o carga manual de precio?
-Una devolución reintegra siempre el precio original?
-Se permite stock negativo? es decir, vender productos sin stock.
-Moneda? imagino que peso argentino.
-
+  Una devolución reintegra siempre el precio original?
+  Se permite stock negativo? es decir, vender productos sin stock.
+  Moneda? imagino que peso argentino.
 
 ## Armar un diccionario de Datos
 
 armar una tabla con las columnas de las entidades y completar con los siguientes datos:
+
 - Nombre.
 - Descripción.
 - Tipo PostgreSQL.
