@@ -33,6 +33,14 @@ La configuración de despliegue se definirá durante la implementación.
 ⚠️ **Nota importante:**  
 Las instrucciones de instalación y uso se agregarán durante el desarrollo inicial.
 
+## Documentación y base de datos
+
+- [Listado de módulos](4_docs/modulos.md).
+- [Diagrama entidad-relación](4_docs/diagrama-entidad-relacion.md).
+- [Arquitectura](4_docs/arquitectura.md).
+- [Base de datos inicial: alcance e instrucciones](3_database/README.md).
+- [Script inicial para PostgreSQL en Supabase](3_database/001_inicial.sql).
+
 ---
 
 ## Funcionalidades Principales (MVP)
