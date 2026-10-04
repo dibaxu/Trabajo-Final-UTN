@@ -30,8 +30,60 @@ La configuración de despliegue se definirá durante la implementación.
 ---
 
 ## Instalación y Uso
-⚠️ **Nota importante:**  
-Las instrucciones de instalación y uso se agregarán durante el desarrollo inicial.
+### 1. Clonar el repositorio
+```bash
+git clone https://github.com/usuario/Trabajo-Final-UTN.git
+cd Trabajo-Final-UTN
+```
+
+## 2. Frontend
+Entrar a la carpeta del frontend:
+
+```bash
+cd 1_frontend
+```
+
+Instalar dependencias:
+
+```bash
+npm install
+```
+
+Ejecutar en modo desarrollo:
+
+```bash
+npm run dev
+```
+
+Acceder desde el navegador:
+
+Código
+http://localhost:5173
+
+## 3. Backend
+Entrar a la carpeta del backend:
+
+```bash
+cd ../2_backend
+```
+
+Instalar dependencias:
+
+```bash
+npm install
+```
+
+Iniciar el servidor:
+
+```bash
+npm start
+```
+
+El backend se levanta en:
+
+Código
+http://localhost:3000
+
 
 ## Documentación y base de datos
 
