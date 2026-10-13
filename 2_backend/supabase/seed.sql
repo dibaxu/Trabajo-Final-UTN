@@ -1,0 +1,3 @@
+-- Datos ficticios para desarrollo y demostración.
+-- El rol ADMINISTRADOR forma parte de la migración inicial.
+-- Agregá fixtures aquí cuando existan las funcionalidades correspondientes.

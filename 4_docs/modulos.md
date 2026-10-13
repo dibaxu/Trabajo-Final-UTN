@@ -32,4 +32,4 @@ Mostrará resúmenes por período y producto, incluyendo ingresos, costos, marge
 
 ## Alcance del primer script de base de datos
 
-El [script inicial](../3_database/001_inicial.sql) implementa únicamente roles, perfiles de usuario, categorías de productos y productos del [diagrama entidad-relación](diagrama-entidad-relacion.md). Las tablas de costos, stock, ventas, devoluciones y gastos se incorporarán durante el desarrollo. Este listado describe el sistema previsto, no funcionalidades ya implementadas.
+La [migración inicial de Supabase CLI](../2_backend/supabase/migrations/20261009231732_schema_inicial.sql) implementa únicamente roles, perfiles de usuario, categorías de productos y productos del [diagrama entidad-relación](diagrama-entidad-relacion.md). Las tablas de costos, stock, ventas, devoluciones y gastos se incorporarán durante el desarrollo. Este listado describe el sistema previsto, no funcionalidades ya implementadas. La carpeta `3_database` conserva la [documentación para reconstruir y revisar la base](../3_database/README.md).

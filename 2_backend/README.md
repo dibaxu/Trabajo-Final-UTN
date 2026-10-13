@@ -1,124 +1,95 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Backend — administración de impresión 3D
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS 12 con TypeScript y ESM. PostgreSQL de Supabase se consulta mediante `pg`; `@supabase/supabase-js` queda disponible para Auth y Storage. Las migraciones se gestionan con Supabase CLI desde esta carpeta.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Preparación
 
-## Description
+Requiere Node.js 24.15 o posterior de la línea 24 y npm. Para usar Supabase localmente también necesitás Docker Desktop iniciado. La CLI está fijada como dependencia de desarrollo; no hace falta instalarla globalmente.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Desde `2_backend`:
 
-## Project setup
-
-```bash
-$ npm install
+```powershell
+npm ci
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-## Compile and run the project
+Si ya tenés `.env`, completá sus variables sin sobrescribirlo. Obtené `DATABASE_URL` desde Supabase > Connect: conexión directa si tu red admite IPv6, o **Session pooler** para IPv4. Usá la contraseña PostgreSQL y codificá sus caracteres reservados en la URL. No uses una API key como contraseña.
 
-```bash
-# development
-$ npm run start
+Descargá la CA de Database Settings > SSL Configuration y guardala en `certs/prod-ca-2021.crt`. El certificado CA es público; `.env`, claves y estado temporal de la CLI no se versionan.
 
-# watch mode
-$ npm run start:dev
+| Variable | Uso |
+| --- | --- |
+| `NODE_ENV` | `development`, `test` o `production`; predeterminado `development`. |
+| `PORT` | Puerto HTTP; predeterminado `3000`. |
+| `FRONTEND_ORIGIN` | Origen exacto permitido por CORS, sin ruta ni barra final. |
+| `DATABASE_URL` | URL PostgreSQL del proyecto. |
+| `DATABASE_SSL` | `true` por defecto; `false` solo para PostgreSQL local. |
+| `DATABASE_CA_PATH` | Ruta opcional del certificado CA, relativa al directorio de ejecución. |
+| `DATABASE_POOL_MAX` | Máximo de conexiones por proceso; predeterminado `5`. |
+| `SUPABASE_URL` | URL HTTP del proyecto para Auth y Storage. |
+| `SUPABASE_PUBLISHABLE_KEY` | Clave publicable; no uses una clave secreta. |
 
-# production mode
-$ npm run start:prod
+Los parámetros SSL de `DATABASE_URL` se reemplazan por `DATABASE_SSL` y `DATABASE_CA_PATH`. Sin una CA configurada se usa la confianza predeterminada de Node; se conserva la verificación del servidor.
+
+## Ejecutar
+
+```powershell
+npm run start:dev
 ```
 
-## Run tests
+El inicio valida las variables y ejecuta `SELECT 1`. Si no puede conectarse, no empieza a aceptar peticiones. No ejecuta migraciones al arrancar.
 
-```bash
-# unit tests
-$ npm run test
+- Salud: <http://localhost:3000/api/health> (`200` con base disponible; `503` si falla).
+- Swagger: <http://localhost:3000/api/docs>.
+- OpenAPI: <http://localhost:3000/api/docs-json>.
 
-# e2e tests
-$ npm run test:e2e
+Los módulos de negocio están preparados, pero no tienen CRUD ni autenticación implementados. El único endpoint actual es salud. La descripción Bearer de Swagger documenta el mecanismo previsto; no activa un guard.
 
-# test coverage
-$ npm run test:cov
+## Estructura y convenciones
+
+```text
+src/
+├── config/                  # Validación de entorno y configuración HTTP
+├── infrastructure/
+│   ├── database/            # Pool PostgreSQL, consultas y transacciones
+│   └── supabase/            # Cliente sin sesiones compartidas
+└── modules/                 # auth, users, products, costs, inventory,
+                            # sales, expenses, reports y health
+supabase/
+├── config.toml
+├── migrations/              # Única fuente de cambios SQL
+└── seed.sql                 # Datos ficticios de desarrollo
 ```
 
-## Deployment
+Los imports locales terminan en `.js` aunque el archivo fuente sea `.ts`. Las dependencias de infraestructura se importan explícitamente. Los módulos exportan operaciones de negocio y mantienen sus repositories internos. Ver [guía de módulos](src/modules/README.md).
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Usá SQL parametrizado (`$1`, `$2`) para valores. En transacciones, ejecutá todas las consultas sobre el cliente recibido en `DatabaseService.transaction()` y pasalo a los repositories necesarios; no abras otra conexión para una parte de la operación.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Verificar
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```powershell
+npm run build
+npm run lint
+npm test
+npm run test:e2e
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Las pruebas de API usan un pool sustituido, sin acceder al proyecto remoto. Las pruebas de transacciones comprueban confirmación, rollback y descarte de conexiones dañadas; no reemplazan las futuras pruebas reales de concurrencia de stock.
 
-## Observability
+Para ejecutar lo compilado: `npm run start:prod` después de `npm run build`.
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+## Migraciones
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+Ejecutá los comandos desde `2_backend`. Ver [documentación de base de datos](../3_database/README.md) para reconstrucción local, aplicación remota y bases que ya ejecutaron el script inicial manualmente.
 
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project:
-
-```bash
-$ npm install @nestjs/observe
+```powershell
+npm run db:migration:new -- agregar_costos
+npm run db:start
+npm run db:reset
 ```
 
-Then follow the [setup guide](https://docs.nestjs.com/observability/overview) - it takes a single import and an app key.
+`db:reset` apunta explícitamente a la base **local** y borra sus datos. Para el proyecto remoto, primero revisá `npm run db:push:dry`; `npm run db:push` aplica las migraciones pendientes y modifica ese proyecto.
 
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
+`supabase/config.toml` configura el entorno local: su configuración de Auth apunta al frontend Vite y tiene el registro público deshabilitado para el MVP. Los ajustes de Auth del proyecto remoto deben configurarse en su Dashboard.
 
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Referencias: [conexiones Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres), [migraciones](https://supabase.com/docs/guides/local-development/database-migrations), [transacciones pg](https://node-postgres.com/features/transactions).
