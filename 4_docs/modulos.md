@@ -6,6 +6,8 @@ La aplicación administrativa para el emprendimiento de impresión 3D se dividir
 
 Permitirá iniciar y cerrar sesión mediante Supabase Auth, consultar el perfil y administrar el estado y rol de los usuarios. En el MVP todos los usuarios tendrán el rol ADMINISTRADOR; más adelante se podrán incorporar otros roles y permisos.
 
+El [acceso por invitación](autenticacion.md) ya está implementado en el backend: `AuthModule` concentra autenticación, perfiles y administración del acceso. El cambio de rol y las pantallas del frontend quedan pendientes.
+
 ## 2. Gestión de productos
 
 Permitirá crear, consultar, modificar y desactivar productos y sus categorías. Incluirá nombre, código interno, descripción, imagen y precio de referencia. Los productos con operaciones históricas se desactivarán para conservar sus registros.
@@ -32,4 +34,4 @@ Mostrará resúmenes por período y producto, incluyendo ingresos, costos, marge
 
 ## Alcance del primer script de base de datos
 
-El [script inicial](../3_database/001_inicial.sql) implementa únicamente roles, perfiles de usuario, categorías de productos y productos del [diagrama entidad-relación](diagrama-entidad-relacion.md). Las tablas de costos, stock, ventas, devoluciones y gastos se incorporarán durante el desarrollo. Este listado describe el sistema previsto, no funcionalidades ya implementadas.
+La [migración inicial de Supabase CLI](../2_backend/supabase/migrations/20261009231732_schema_inicial.sql) implementa únicamente roles, perfiles de usuario, categorías de productos y productos del [diagrama entidad-relación](diagrama-entidad-relacion.md). Las tablas de costos, stock, ventas, devoluciones y gastos se incorporarán durante el desarrollo. Este listado describe el sistema previsto, no funcionalidades ya implementadas. La carpeta `3_database` conserva la [documentación para reconstruir y revisar la base](../3_database/README.md).

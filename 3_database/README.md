@@ -1,30 +1,80 @@
-# Base de datos inicial
+# Base de datos — documentación
 
-Motor: **PostgreSQL en Supabase**.
+Motor: **PostgreSQL en Supabase**. Esta carpeta conserva documentación; el SQL ejecutable vive exclusivamente en [`2_backend/supabase/migrations`](../2_backend/supabase/migrations/).
 
-El archivo [001_inicial.sql](001_inicial.sql) crea una primera parte del [diagrama entidad-relación](../4_docs/diagrama-entidad-relacion.md):
+## Migración inicial
+
+[`20261009231732_schema_inicial.sql`](../2_backend/supabase/migrations/20261009231732_schema_inicial.sql) contiene el SQL fue creada con `supabase migration new schema_inicial`.
 
 | Tabla | Contenido |
 | --- | --- |
-| `roles` | Roles del sistema; incluye el registro inicial ADMINISTRADOR. |
-| `profiles` | Perfil de cada usuario, asociado a `auth.users` y a un rol. |
-| `product_categories` | Categorías para organizar los productos. |
-| `products` | Datos básicos del producto, categoría, precio y usuario creador. |
+| `roles` | Roles del sistema; incluye ADMINISTRADOR. |
+| `profiles` | Perfil asociado a `auth.users` y a un rol. |
+| `product_categories` | Categorías de productos. |
+| `products` | Catálogo, categoría, precio de referencia y usuario creador. |
 
-## Ejecución en Supabase
+Es una implementación parcial del [DER](../4_docs/diagrama-entidad-relacion.md). Costos, movimientos, ventas, devoluciones y gastos se agregarán en nuevas migraciones.
 
-1. Abrir el proyecto de Supabase y entrar al **SQL Editor**.
-2. Crear una consulta, copiar el contenido completo de `001_inicial.sql` y ejecutarlo una sola vez, en una base que todavía no tenga estas tablas.
-3. Comprobar en el **Table Editor** que se crearon las cuatro tablas y que `roles` contiene ADMINISTRADOR.
+Las tablas tienen RLS habilitado y acceso revocado a `anon` y `authenticated`. El frontend no puede hacer CRUD directo mediante la Data API de Supabse. Nest accederá mediante PostgreSQL y deberá implementar autorización.
 
-El script utiliza una transacción: si alguna instrucción falla, no se confirma una creación parcial. No elimina ni reemplaza tablas existentes. Requiere las tablas de autenticación y los roles que Supabase ya proporciona.
+La migración `20261017211747_acceso_por_invitacion.sql` agrega `profiles.invited_by` con su FK e índice. El [módulo de acceso](../4_docs/autenticacion.md) ya implementa autorización en Nest y consulta el estado actual del perfil y de `auth.sessions`. No se agregan permisos a la Data API.
 
-Para cargar productos de prueba desde el SQL Editor, primero se debe crear un usuario en Supabase Auth, agregar su perfil con el mismo UUID y el rol ADMINISTRADOR, y crear una categoría. El script no crea usuarios ni perfiles automáticamente.
+## Reconstrucción local para desarrollo
 
-## Alcance y próximos pasos
+Requisitos: Node.js, npm y Docker Desktop iniciado. Desde `2_backend`:
 
-Esta versión es inicial y parcial. Más adelante se agregarán costos, movimientos de stock, ventas, devoluciones y gastos. No incluye funciones, disparadores ni reglas de negocio completas. Los campos `updated_at` se inicializan al crear el registro; la aplicación deberá actualizarlos cuando modifique sus datos.
+```powershell
+npm ci
+npm run db:start
+npm run db:reset
+npm run db:status
+```
 
-Las cuatro tablas tienen RLS habilitado y no conceden acceso a los roles de cliente `anon` y `authenticated`. Se pueden administrar desde el SQL Editor; el acceso desde la aplicación requerirá definir permisos y políticas según los roles del sistema. Referencia: [seguridad por filas en Supabase](https://supabase.com/docs/guides/database/postgres/row-level-security).
+`db:reset` ejecuta `supabase db reset --local`: descarta los datos locales y reconstruye la base usando todas las migraciones, seguidas de `seed.sql`. Supabase local crea previamente `auth.users` y los roles internos necesarios. El seed está preparado para datos ficticios y por ahora solo contiene comentarios.
 
-Los cambios posteriores sobre una base ya creada se incorporarán en nuevos scripts numerados, conservando este archivo como punto de partida.
+Para conectar Nest al entorno local, copiá la URL PostgreSQL y los valores de API de `db:status` a tu `.env`, usá `DATABASE_SSL=false` y dejá `DATABASE_CA_PATH` vacío. No publiques las claves mostradas por ese comando.
+
+## Crear cambios
+
+```powershell
+npm run db:migration:new -- agregar_costos
+```
+
+La CLI genera `supabase/migrations/<timestamp>_agregar_costos.sql`. Agregá el SQL ahí, revisalo y probalo reconstruyendo la base local. Una migración compartida y aplicada no se edita: la corrección se incorpora en otra migración.
+
+Versioná migraciones, `config.toml`, `seed.sql` y documentación. No mantengas una segunda copia del SQL en `3_database`, ni subas dumps con datos reales, contraseñas o archivos de `.temp`.
+
+## Aplicación remota
+
+Desde `2_backend`, vinculá el checkout si todavía no está vinculado:
+
+```powershell
+npm run supabase -- login
+npm run supabase -- link --project-ref TU_PROJECT_REF
+npm run db:migration:list
+npm run db:push:dry
+```
+
+Después de comprobar el proyecto y las migraciones pendientes:
+
+```powershell
+npm run db:push
+```
+
+Ese último comando modifica la base remota. El arranque de Nest no aplica SQL automáticamente. Esta configuración inicial no ejecutó migraciones remotas.
+
+## Si ya ejecutaste `001_inicial.sql` desde el SQL Editor
+
+No vuelvas a aplicar la migración inicial sobre esas tablas. Primero compará el esquema completo con el archivo de migración.
+
+Solo si coincide exactamente, registrá esa versión como aplicada:
+
+```powershell
+npm run supabase -- migration repair 20261009231732 --status applied --linked
+npm run db:migration:list
+npm run db:push:dry
+```
+
+`migration repair` cambia el historial remoto, no ejecuta el SQL. No lo uses para ocultar diferencias de esquema. Si existen diferencias, revisá el esquema remoto mediante `supabase db pull` y acordá una migración de referencia antes de hacer `db push`.
+
+Referencias: [migraciones de Supabase](https://supabase.com/docs/guides/local-development/database-migrations), [CLI](https://supabase.com/docs/reference/cli/introduction), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).

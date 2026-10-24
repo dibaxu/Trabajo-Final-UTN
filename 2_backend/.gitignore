@@ -45,6 +45,12 @@ lerna-debug.log*
 .env.production.local
 .env.local
 
+# Exportaciones personales de Postman con credenciales y sesiones.
+/postman
+postman/*.local.postman_environment.json
+postman/*.local.environment.yaml
+postman/UTN · API local.environment.yaml
+
 # temp directory
 .temp
 .tmp

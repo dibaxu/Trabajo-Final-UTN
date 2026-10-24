@@ -42,7 +42,10 @@ backend/coverage/
 # Supabase
 .supabase/
 *.sql
+!/2_backend/supabase/migrations/*.sql
+!/2_backend/supabase/seed.sql
 supabase/.temp/
+supabase/.branches/
 
 # OS / editor
 .DS_Store

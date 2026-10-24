@@ -73,16 +73,24 @@ Instalar dependencias:
 npm install
 ```
 
-Iniciar el servidor:
+Preparar `.env` sin sobrescribirlo si ya existe, y completar sus variables siguiendo las [instrucciones del backend](2_backend/README.md):
+
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+Iniciar el servidor en desarrollo:
 
 ```bash
-npm start
+npm run start:dev
 ```
 
 El backend se levanta en:
 
 Código
-http://localhost:3000
+http://localhost:3000/api/health
+
+Swagger: http://localhost:3000/api/docs. El backend verifica la conexión PostgreSQL al iniciar. Los módulos de negocio tienen su estructura inicial; todavía no implementan CRUD ni autenticación.
 
 
 ## Documentación y base de datos
@@ -91,7 +99,8 @@ http://localhost:3000
 - [Diagrama entidad-relación](4_docs/diagrama-entidad-relacion.md).
 - [Arquitectura](4_docs/arquitectura.md).
 - [Base de datos inicial: alcance e instrucciones](3_database/README.md).
-- [Script inicial para PostgreSQL en Supabase](3_database/001_inicial.sql).
+- [Migraciones gestionadas por Supabase CLI](2_backend/supabase/migrations/).
+- [Diseño del módulo de acceso por invitación](4_docs/autenticacion.md).
 
 ---
 
@@ -112,6 +121,12 @@ http://localhost:3000
 - Módulo de ferias y eventos.  
 
 ---
+
+## Documentación de la API
+
+- [Swagger, OpenAPI y contrato para frontend](4_docs/api.md).
+- [Preparación y ejecución del backend](2_backend/README.md).
+- [Contrato OpenAPI versionado](2_backend/openapi/openapi.json).
 
 ## Autores
 - Sergio Andrés Montenegro  
