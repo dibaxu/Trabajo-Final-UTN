@@ -1,0 +1,1654 @@
+{
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "description": "Acceso público para cuentas invitadas que ya definieron contraseña. Comprueba que la sesión, el perfil y el rol sigan activos. Devuelve ambos tokens y el perfil actual. Límite de Nest: 10 intentos por minuto e IP.",
+        "operationId": "authLogin",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sesión iniciada y acceso a la aplicación confirmado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Inicia sesión con correo y contraseña",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "description": "Recibe el refresh token vigente; no requiere un access token en la cabecera. Reemplazar el par de tokens guardado por el devuelto y evitar renovaciones simultáneas de la misma sesión. Un perfil desactivado obtiene 403. Límite de Nest: 30 peticiones por minuto e IP.",
+        "operationId": "authRefreshSession",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tokens vigentes y perfil actual.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Renueva la sesión y vuelve a comprobar el acceso",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/verify": {
+      "post": {
+        "description": "El frontend toma token_hash del enlace recibido por correo, lo elimina de la URL y lo envía aquí con type invite o recovery. Guardar la sesión recibida y usar PATCH /api/auth/password para definir la contraseña. El enlace verificado acredita el correo y permite acceder si el perfil está activo. Límite de Nest: 10 intentos por minuto e IP.",
+        "operationId": "authVerifyLink",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Enlace consumido y sesión del usuario verificado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Verifica una invitación o recuperación de contraseña de un solo uso",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/password": {
+      "patch": {
+        "description": "Requiere el access token Bearer y el refresh token de la misma sesión. La nueva contraseña tiene entre 12 y 128 caracteres y debe cumplir la política de Supabase. Conservar los tokens devueltos, porque pueden renovarse durante la operación. Ante un 400 de contraseña se puede corregir el cuerpo y reintentar usando la sesión ya verificada.",
+        "operationId": "authChangePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contraseña actualizada; sesión vigente que debe conservar el cliente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Define o cambia la contraseña de la sesión actual",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "description": "Acceso público. La respuesta aceptada es la misma para un correo existente o desconocido. Si corresponde, se envía un enlace para POST /api/auth/verify con type recovery. Límite de Nest: 3 solicitudes por minuto e IP; el proveedor también aplica límites de correo.",
+        "operationId": "authRequestPasswordReset",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Solicitud recibida; no confirma que el correo pertenezca a una cuenta.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDto"
+                },
+                "example": {
+                  "message": "Si la cuenta existe, recibirás instrucciones por correo."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Solicita recuperación sin revelar si el correo existe",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "description": "Revoca la sesión del token Bearer presentado. El frontend debe borrar sus tokens y perfil locales tras el 204. La API rechaza los JWT de esa sesión desde las siguientes peticiones, aunque todavía no hayan expirado. Otras sesiones del usuario permanecen abiertas.",
+        "operationId": "authLogout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Sesión cerrada; respuesta sin cuerpo."
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cierra la sesión actual",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "description": "Comprueba el JWT y la sesión con el proveedor y consulta el perfil y rol activos en PostgreSQL. No devuelve tokens. Un usuario autenticado en Supabase sin perfil autorizado obtiene 403.",
+        "operationId": "authGetCurrentUser",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Identidad y rol actuales del miembro activo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessUserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta la identidad y permisos actuales",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/users": {
+      "get": {
+        "description": "Requiere ADMINISTRADOR activo. Devuelve la lista completa de perfiles, incluidos los desactivados y los correos todavía sin confirmar. El MVP no aplica paginación. emailConfirmed permite distinguir correos pendientes de confirmación.",
+        "operationId": "usersList",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Miembros ordenados por creación e identificador; puede devolver una lista vacía.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista miembros e invitaciones pendientes",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/users/invitations": {
+      "post": {
+        "description": "Requiere ADMINISTRADOR activo. Crea la cuenta sin contraseña y el perfil antes de enviar el correo. El rol se asigna en el servidor como ADMINISTRADOR. Un reintento reutiliza la cuenta pendiente sin cambiar su nombre, rol ni estado. Usar el enlace más reciente. Una cuenta confirmada devuelve 409; una desactivada requiere reactivación explícita y devuelve 403. Límite de Nest: 5 peticiones por minuto e IP.",
+        "operationId": "usersInvite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Invitación enviada; todavía falta que la persona confirme el correo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDto"
+                },
+                "example": {
+                  "message": "Invitación enviada."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La cuenta ya existe o ya confirmó su correo; usar login o recuperación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 409,
+                  "message": "La cuenta ya confirmó su correo.",
+                  "error": "Conflict"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Invita o reenvía la invitación a una cuenta pendiente",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/users/{id}/status": {
+      "patch": {
+        "description": "Requiere ADMINISTRADOR activo. Desactivar impide las siguientes peticiones del usuario. Reactivar permite reutilizar sesiones que todavía sigan vigentes. No se puede desactivar el propio acceso. Se conserva la identidad y el historial del usuario.",
+        "operationId": "usersSetStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Identificador del miembro cuyo estado se cambia.",
+            "schema": {
+              "format": "uuid",
+              "example": "22222222-2222-4222-8222-222222222222",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Perfil con el estado actualizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El usuario indicado no existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 404,
+                  "message": "Usuario no encontrado.",
+                  "error": "Not Found"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Activa o desactiva un miembro sin borrar su historial",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "description": "Endpoint público de disponibilidad. Ejecuta una consulta mínima a PostgreSQL; no requiere JWT y no usa el limitador de peticiones de acceso. El error 503 conserva el cuerpo de salud, distinto del formato general de errores.",
+        "operationId": "healthCheck",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "API y base de datos disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base de datos no disponible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthUnavailableDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Comprueba que la API puede consultar PostgreSQL",
+        "tags": [
+          "Health"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Administración de emprendimiento de impresión 3D",
+    "description": "Contrato de la API del proyecto final UTN. Todas las rutas llevan el prefijo /api. Las operaciones de acceso son públicas cuando así se indica; las demás requieren un accessToken Bearer y un perfil activo. El acceso es por invitación y el MVP asigna ADMINISTRADOR a los miembros. Los cuerpos rechazan propiedades desconocidas. Los ejemplos contienen valores ficticios. Solo se enumeran endpoints implementados; los módulos de productos, ventas y reportes se incorporarán de forma incremental.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Ingreso, sesiones, perfil y recuperación del acceso."
+    },
+    {
+      "name": "Users",
+      "description": "Invitaciones y administración de miembros. Requiere ADMINISTRADOR activo."
+    },
+    {
+      "name": "Health",
+      "description": "Disponibilidad de la API y PostgreSQL; acceso público."
+    }
+  ],
+  "servers": [
+    {
+      "url": "/",
+      "description": "Mismo origen que el servidor de la API"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Access token devuelto por login, verify, refresh o password. En Authorize pegar solo el token, sin el prefijo Bearer."
+      }
+    },
+    "schemas": {
+      "ApiErrorDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "example": 401,
+            "description": "Código de estado HTTP."
+          },
+          "message": {
+            "description": "Descripción del error; las validaciones pueden devolver una lista de mensajes. No usar el texto como código de negocio.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
+            "example": "Se requiere una sesión válida."
+          },
+          "error": {
+            "type": "string",
+            "example": "Unauthorized",
+            "description": "Nombre del error cuando Nest lo incluye en la respuesta."
+          }
+        },
+        "required": [
+          "statusCode",
+          "message"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "persona@example.com",
+            "maxLength": 254,
+            "description": "Correo del usuario. La API elimina espacios externos y lo convierte a minúsculas."
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 1,
+            "maxLength": 128,
+            "writeOnly": true,
+            "example": "EjemploDeClave2026!",
+            "description": "Contraseña actual. El inicio de sesión admite credenciales existentes."
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "AccessUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "11111111-1111-4111-8111-111111111111",
+            "description": "Identificador del usuario en Supabase y del perfil de la aplicación."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "persona@example.com"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "María Pérez"
+          },
+          "role": {
+            "type": "string",
+            "example": "ADMINISTRADOR",
+            "description": "Rol actual consultado en PostgreSQL. En el MVP todos los miembros son ADMINISTRADOR."
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "role"
+        ]
+      },
+      "SessionDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "example": "access-token-ficticio",
+            "description": "JWT para Authorization: Bearer <accessToken>. El ejemplo no es una credencial válida."
+          },
+          "refreshToken": {
+            "type": "string",
+            "example": "refresh-token-ficticio",
+            "description": "Token para renovar esta sesión. Reemplazarlo por el valor devuelto en cada renovación."
+          },
+          "expiresIn": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 3600,
+            "description": "Segundos de validez del access token."
+          },
+          "expiresAt": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "example": 1792861200,
+            "description": "Vencimiento como Unix timestamp en segundos; multiplicar por 1000 para Date de JavaScript."
+          },
+          "tokenType": {
+            "type": "string",
+            "enum": [
+              "bearer"
+            ],
+            "example": "bearer"
+          },
+          "user": {
+            "description": "Perfil y rol actuales de la aplicación.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AccessUserDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "expiresIn",
+          "expiresAt",
+          "tokenType",
+          "user"
+        ]
+      },
+      "RefreshDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "writeOnly": true,
+            "example": "refresh-token-ficticio",
+            "description": "Refresh token vigente de la sesión. Conservar el nuevo par de tokens devuelto por la API."
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "VerifyDto": {
+        "type": "object",
+        "properties": {
+          "tokenHash": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "writeOnly": true,
+            "example": "hash-ficticio-del-enlace",
+            "description": "token_hash del enlace recibido por correo, de un solo uso. Se envía por POST en el cuerpo."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "invite",
+              "recovery"
+            ],
+            "example": "invite",
+            "description": "Tipo del correo que originó el enlace."
+          }
+        },
+        "required": [
+          "tokenHash",
+          "type"
+        ]
+      },
+      "PasswordDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "writeOnly": true,
+            "example": "refresh-token-ficticio",
+            "description": "Refresh token vigente de la sesión. Conservar el nuevo par de tokens devuelto por la API."
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 12,
+            "maxLength": 128,
+            "writeOnly": true,
+            "example": "OtraClaveDeEjemplo2026!",
+            "description": "Nueva contraseña; Supabase también comprueba su política de seguridad."
+          }
+        },
+        "required": [
+          "refreshToken",
+          "password"
+        ]
+      },
+      "EmailDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "persona@example.com",
+            "maxLength": 254,
+            "description": "Correo del usuario. La API elimina espacios externos y lo convierte a minúsculas."
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "MessageDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Invitación enviada.",
+            "description": "Mensaje informativo para mostrar al usuario."
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "MemberDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "11111111-1111-4111-8111-111111111111",
+            "description": "Identificador del usuario en Supabase y del perfil de la aplicación."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "persona@example.com"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "María Pérez"
+          },
+          "role": {
+            "type": "string",
+            "example": "ADMINISTRADOR",
+            "description": "Rol actual consultado en PostgreSQL. En el MVP todos los miembros son ADMINISTRADOR."
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true,
+            "description": "Estado del perfil en la aplicación."
+          },
+          "emailConfirmed": {
+            "type": "boolean",
+            "example": false,
+            "description": "false identifica un correo aún sin confirmar, incluido un usuario con invitación pendiente."
+          },
+          "invitedBy": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid",
+            "example": null,
+            "description": "Administrador que concedió el acceso. Puede ser null para el primer administrador."
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "displayName",
+          "role",
+          "isActive",
+          "emailConfirmed",
+          "invitedBy"
+        ]
+      },
+      "InviteDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "persona@example.com",
+            "maxLength": 254,
+            "description": "Correo del usuario. La API elimina espacios externos y lo convierte a minúsculas."
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "example": "María Pérez",
+            "description": "Nombre visible; se eliminan espacios externos."
+          }
+        },
+        "required": [
+          "email",
+          "displayName"
+        ]
+      },
+      "StatusDto": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean",
+            "example": false,
+            "description": "false bloquea el acceso en las siguientes peticiones. true permite reutilizar las sesiones que todavía sigan vigentes."
+          }
+        },
+        "required": [
+          "isActive"
+        ]
+      },
+      "HealthDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ],
+            "example": "ok"
+          },
+          "database": {
+            "type": "string",
+            "enum": [
+              "up"
+            ],
+            "example": "up"
+          }
+        },
+        "required": [
+          "status",
+          "database"
+        ]
+      },
+      "HealthUnavailableDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "error"
+            ],
+            "example": "error"
+          },
+          "database": {
+            "type": "string",
+            "enum": [
+              "down"
+            ],
+            "example": "down"
+          }
+        },
+        "required": [
+          "status",
+          "database"
+        ]
+      }
+    }
+  }
+}

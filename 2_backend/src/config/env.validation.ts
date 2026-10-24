@@ -5,6 +5,17 @@ const optionalPath = z.preprocess(
   z.string().trim().min(1).optional(),
 );
 
+function isLegacyKey(value: string, role: string): boolean {
+  try {
+    const payload = JSON.parse(
+      Buffer.from(value.split('.')[1] ?? '', 'base64url').toString(),
+    ) as { role?: unknown };
+    return payload.role === role;
+  } catch {
+    return false;
+  }
+}
+
 const envSchema = z
   .object({
     NODE_ENV: z
@@ -26,7 +37,18 @@ const envSchema = z
       .string()
       .trim()
       .min(1)
-      .refine((value) => !value.startsWith('sb_secret_')),
+      .refine(
+        (value) =>
+          value.startsWith('sb_publishable_') || isLegacyKey(value, 'anon'),
+      ),
+    SUPABASE_SECRET_KEY: z
+      .string()
+      .trim()
+      .min(1)
+      .refine(
+        (value) =>
+          value.startsWith('sb_secret_') || isLegacyKey(value, 'service_role'),
+      ),
   })
   .superRefine((env, context) => {
     let hostname: string;

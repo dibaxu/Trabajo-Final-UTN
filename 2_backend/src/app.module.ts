@@ -9,13 +9,11 @@ import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { SalesModule } from './modules/sales/sales.module.js';
-import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     AuthModule,
-    UsersModule,
     ProductsModule,
     CostsModule,
     InventoryModule,

@@ -5,6 +5,7 @@ const env = {
   DATABASE_URL: 'postgresql://postgres:test@localhost:54322/postgres',
   SUPABASE_URL: 'http://localhost:54321',
   SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
+  SUPABASE_SECRET_KEY: 'sb_secret_test',
 };
 
 describe('Validación de entorno', () => {
@@ -40,5 +41,20 @@ describe('Validación de entorno', () => {
       expect((error as Error).message).toContain('DATABASE_URL');
       expect((error as Error).message).not.toContain(secret);
     }
+  });
+
+  it('rechaza una clave secreta en el campo publicable y viceversa', () => {
+    expect(() =>
+      validateEnv({ ...env, SUPABASE_PUBLISHABLE_KEY: 'sb_secret_private' }),
+    ).toThrow('SUPABASE_PUBLISHABLE_KEY');
+    expect(() =>
+      validateEnv({ ...env, SUPABASE_SECRET_KEY: 'sb_publishable_test' }),
+    ).toThrow('SUPABASE_SECRET_KEY');
+  });
+
+  it('requiere la clave administrativa sin incluirla en el mensaje de error', () => {
+    expect(() =>
+      validateEnv({ ...env, SUPABASE_SECRET_KEY: undefined }),
+    ).toThrow('SUPABASE_SECRET_KEY');
   });
 });

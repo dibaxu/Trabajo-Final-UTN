@@ -27,10 +27,14 @@ Definir WIREFRAMES de referencia, que al menos sean esquemas sencillo con rectan
 
 El backend se implementará con NestJS. Definir los endpoints antes de implementar y documentarlos con OpenAPI/Swagger.
 
+Swagger y el contrato OpenAPI se generan desde los controladores y DTO. El [contrato para frontend](api.md) explica cómo consultar los endpoints actuales, exportar el archivo versionado y documentar las siguientes operaciones.
+
 En `POST /sales`, `saleType` es obligatorio y admite solo `MAYORISTA` o `MINORISTA`. Es un dato de la cabecera de la venta, común a todos sus detalles; se conserva en el historial y se devuelve en las consultas. `GET /sales` permite filtrar por `saleType` y período. El resumen del dashboard muestra ingresos, costos, margen y unidades desglosados por tipo de venta, con un total general conciliable. Los precios unitarios efectivos se guardan en cada detalle, independientemente del precio de referencia del producto.
 
 POST   /auth/login
 GET    /auth/me
+
+El contrato completo de acceso por invitación, los límites del módulo profundo y la configuración de Supabase se documentan en [autenticación](autenticacion.md).
 
 GET    /products
 POST   /products

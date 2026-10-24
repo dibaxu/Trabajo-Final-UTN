@@ -100,7 +100,7 @@ Swagger: http://localhost:3000/api/docs. El backend verifica la conexión Postgr
 - [Arquitectura](4_docs/arquitectura.md).
 - [Base de datos inicial: alcance e instrucciones](3_database/README.md).
 - [Migraciones gestionadas por Supabase CLI](2_backend/supabase/migrations/).
-- [Guía de arquitectura y desarrollo de módulos](2_backend/src/modules/README.md).
+- [Diseño del módulo de acceso por invitación](4_docs/autenticacion.md).
 
 ---
 
@@ -121,6 +121,12 @@ Swagger: http://localhost:3000/api/docs. El backend verifica la conexión Postgr
 - Módulo de ferias y eventos.  
 
 ---
+
+## Documentación de la API
+
+- [Swagger, OpenAPI y contrato para frontend](4_docs/api.md).
+- [Preparación y ejecución del backend](2_backend/README.md).
+- [Contrato OpenAPI versionado](2_backend/openapi/openapi.json).
 
 ## Autores
 - Sergio Andrés Montenegro  

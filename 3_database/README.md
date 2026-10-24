@@ -17,6 +17,8 @@ Es una implementación parcial del [DER](../4_docs/diagrama-entidad-relacion.md)
 
 Las tablas tienen RLS habilitado y acceso revocado a `anon` y `authenticated`. El frontend no puede hacer CRUD directo mediante la Data API de Supabse. Nest accederá mediante PostgreSQL y deberá implementar autorización.
 
+La migración `20261017211747_acceso_por_invitacion.sql` agrega `profiles.invited_by` con su FK e índice. El [módulo de acceso](../4_docs/autenticacion.md) ya implementa autorización en Nest y consulta el estado actual del perfil y de `auth.sessions`. No se agregan permisos a la Data API.
+
 ## Reconstrucción local para desarrollo
 
 Requisitos: Node.js, npm y Docker Desktop iniciado. Desde `2_backend`:

@@ -28,6 +28,7 @@ Descargá la CA de Database Settings > SSL Configuration y guardala en `certs/pr
 | `DATABASE_POOL_MAX` | Máximo de conexiones por proceso; predeterminado `5`. |
 | `SUPABASE_URL` | URL HTTP del proyecto para Auth y Storage. |
 | `SUPABASE_PUBLISHABLE_KEY` | Clave publicable; no uses una clave secreta. |
+| `SUPABASE_SECRET_KEY` | Clave secreta del backend para crear cuentas e invitar (`sb_secret_...` o `service_role` heredada). Nunca en el frontend. |
 
 Los parámetros SSL de `DATABASE_URL` se reemplazan por `DATABASE_SSL` y `DATABASE_CA_PATH`. Sin una CA configurada se usa la confianza predeterminada de Node; se conserva la verificación del servidor.
 
@@ -41,9 +42,21 @@ El inicio valida las variables y ejecuta `SELECT 1`. Si no puede conectarse, no 
 
 - Salud: <http://localhost:3000/api/health> (`200` con base disponible; `503` si falla).
 - Swagger: <http://localhost:3000/api/docs>.
-- OpenAPI: <http://localhost:3000/api/docs-json>.
+- OpenAPI JSON: <http://localhost:3000/api/docs-json>.
+- OpenAPI YAML: <http://localhost:3000/api/docs-yaml>.
 
-Los módulos de negocio están preparados, pero no tienen CRUD ni autenticación implementados. El único endpoint actual es salud. La descripción Bearer de Swagger documenta el mecanismo previsto; no activa un guard.
+Para frontend: [contrato, ejemplos y flujo para registrar nuevos endpoints](../4_docs/api.md). El documento versionado se encuentra en [`openapi/openapi.json`](openapi/openapi.json) y se genera desde los mismos controladores y DTO que Swagger.
+
+```powershell
+npm run openapi:generate
+npm run openapi:check
+```
+
+Estos comandos compilan y leen los metadatos de la API sin conectarse a PostgreSQL ni Supabase. `openapi:check` permite detectar que el contrato versionado quedó desactualizado.
+
+Para probar los endpoints manualmente, abrir la [colección y el entorno YAML v3 de Postman](postman/README.md) en Local Mode. Incluyen el flujo por invitación, guardado automático de tokens y pruebas de acceso desactivado o sesión cerrada.
+
+El acceso por invitación está implementado. Incluye login, renovación, verificación de enlaces, contraseña, recuperación, logout, perfil, listado de miembros, invitaciones y cambio de estado. Las rutas de negocio requieren una sesión válida y un perfil activo por defecto. Los CRUD de productos, ventas y demás módulos siguen pendientes. Ver el [contrato, diseño y puesta en marcha de autenticación](../4_docs/autenticacion.md).
 
 ## Estructura y convenciones
 
@@ -52,8 +65,8 @@ src/
 ├── config/                  # Validación de entorno y configuración HTTP
 ├── infrastructure/
 │   ├── database/            # Pool PostgreSQL, consultas y transacciones
-│   └── supabase/            # Cliente sin sesiones compartidas
-└── modules/                 # auth, users, products, costs, inventory,
+│   └── supabase/            # Fábrica de clientes, sin sesiones compartidas
+└── modules/                 # auth (incluye usuarios), products, costs, inventory,
                             # sales, expenses, reports y health
 supabase/
 ├── config.toml
@@ -61,7 +74,7 @@ supabase/
 └── seed.sql                 # Datos ficticios de desarrollo
 ```
 
-Los imports locales terminan en `.js` aunque el archivo fuente sea `.ts`. Las dependencias de infraestructura se importan explícitamente. Los módulos exportan operaciones de negocio y mantienen sus repositories internos. Ver [guía de módulos](src/modules/README.md).
+Los imports locales terminan en `.js` aunque el archivo fuente sea `.ts`. Las dependencias de infraestructura se importan explícitamente. Los módulos exportan operaciones de negocio y mantienen sus repositories internos. Ver [diseño del módulo de acceso](../4_docs/autenticacion.md).
 
 Usá SQL parametrizado (`$1`, `$2`) para valores. En transacciones, ejecutá todas las consultas sobre el cliente recibido en `DatabaseService.transaction()` y pasalo a los repositories necesarios; no abras otra conexión para una parte de la operación.
 
@@ -73,8 +86,6 @@ npm run lint
 npm test
 npm run test:e2e
 ```
-
-Las pruebas de API usan un pool sustituido, sin acceder al proyecto remoto. Las pruebas de transacciones comprueban confirmación, rollback y descarte de conexiones dañadas; no reemplazan las futuras pruebas reales de concurrencia de stock.
 
 Para ejecutar lo compilado: `npm run start:prod` después de `npm run build`.
 

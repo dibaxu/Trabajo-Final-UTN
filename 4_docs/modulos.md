@@ -6,6 +6,8 @@ La aplicación administrativa para el emprendimiento de impresión 3D se dividir
 
 Permitirá iniciar y cerrar sesión mediante Supabase Auth, consultar el perfil y administrar el estado y rol de los usuarios. En el MVP todos los usuarios tendrán el rol ADMINISTRADOR; más adelante se podrán incorporar otros roles y permisos.
 
+El [acceso por invitación](autenticacion.md) ya está implementado en el backend: `AuthModule` concentra autenticación, perfiles y administración del acceso. El cambio de rol y las pantallas del frontend quedan pendientes.
+
 ## 2. Gestión de productos
 
 Permitirá crear, consultar, modificar y desactivar productos y sus categorías. Incluirá nombre, código interno, descripción, imagen y precio de referencia. Los productos con operaciones históricas se desactivarán para conservar sus registros.
