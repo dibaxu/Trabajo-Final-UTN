@@ -20,6 +20,18 @@ El banner superior permite restablecer los datos de ejemplo. Para usar el backen
 
 Scripts: `npm run dev`, `npm run build`, `npm run lint`, `npm test` (reglas de negocio y cálculo, con el runner de Node).
 
+## Despliegue en Netlify
+
+El archivo `netlify.toml` de la raíz del repositorio configura el build:
+
+- **Base directory:** `1_frontend`
+- **Build command:** `npm run build`
+- **Publish directory:** `dist` (relativo al directorio base)
+
+Netlify debe publicar `1_frontend/dist`, donde Vite genera el HTML y los assets compilados. El `index.html` de `1_frontend` es la entrada de desarrollo y no debe publicarse directamente. La regla de reescritura del mismo archivo permite abrir y recargar rutas como `/login` o `/productos`.
+
+Después de subir esta configuración al repositorio, ejecutar un nuevo deploy. Los valores de `netlify.toml` tienen prioridad sobre los configurados en la interfaz de Netlify.
+
 ## Marca
 
 El nombre y el logo se definen en `src/config/brand.js` y `public/logo.png` / `public/favicon.png`. Cambiando esos valores la aplicación se adapta a otro emprendimiento. Las fechas se muestran como día/mes/año.
