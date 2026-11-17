@@ -24,7 +24,7 @@ Descargá la CA de Database Settings > SSL Configuration y guardala en `certs/pr
 | `FRONTEND_ORIGIN` | Origen exacto permitido por CORS, sin ruta ni barra final. |
 | `DATABASE_URL` | URL PostgreSQL del proyecto. |
 | `DATABASE_SSL` | `true` por defecto; `false` solo para PostgreSQL local. |
-| `DATABASE_CA_PATH` | Ruta opcional del certificado CA, relativa al directorio de ejecución. |
+| `DATABASE_CA_PATH` | Ruta opcional del certificado CA, absoluta o relativa a `2_backend`, independientemente del directorio de ejecución. |
 | `DATABASE_POOL_MAX` | Máximo de conexiones por proceso; predeterminado `5`. |
 | `SUPABASE_URL` | URL HTTP del proyecto para Auth y Storage. |
 | `SUPABASE_PUBLISHABLE_KEY` | Clave publicable; no uses una clave secreta. |
@@ -33,6 +33,26 @@ Descargá la CA de Database Settings > SSL Configuration y guardala en `certs/pr
 Los parámetros SSL de `DATABASE_URL` se reemplazan por `DATABASE_SSL` y `DATABASE_CA_PATH`. Sin una CA configurada se usa la confianza predeterminada de Node; se conserva la verificación del servidor.
 
 ## Ejecutar
+
+### Vercel
+
+Configurar **Root Directory** como `2_backend`. El campo `engines.node` de `package.json` fija Node.js `24.x`.
+
+Además de las variables de la tabla anterior, agregar en las variables del proyecto de Vercel, para Production y para los Preview que usen este backend:
+
+```dotenv
+NODE_OPTIONS=--experimental-require-module
+DATABASE_CA_PATH=./certs/prod-ca-2021.crt
+DATABASE_SSL=true
+```
+
+NestJS 12 publica módulos ESM y `@nestjs/throttler` 6.7.1 los carga mediante `require()`. Si el runtime deshabilita esa interoperabilidad, la función falla al cargar con `ERR_REQUIRE_ESM`, antes de atender el login. La opción habilita esa carga; no hace falta modificar archivos de `node_modules`.
+
+`vercel.json` incluye `certs/**` en la función de `src/main.ts`. El certificado público debe estar versionado: configurar solo `DATABASE_CA_PATH` no garantiza que Vercel lo empaquete. Las rutas relativas del certificado se resuelven desde `2_backend` tanto al ejecutar TypeScript como al ejecutar `dist`.
+
+Guardar la variable **antes** de crear un nuevo deploy. Los despliegues existentes conservan su configuración anterior. Después del deploy, comprobar `/api/health` y el inicio de sesión desde el frontend.
+
+### Local
 
 ```powershell
 npm run start:dev

@@ -1,9 +1,14 @@
 import { ConfigService } from '@nestjs/config';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import type { Environment } from '../../config/env.validation.js';
 
 export const DATABASE_POOL = Symbol('DATABASE_POOL');
+
+// src/ y dist/ conservan la misma profundidad respecto de la raíz del backend.
+const backendDirectory = fileURLToPath(new URL('../../../', import.meta.url));
 
 export const databasePoolProvider = {
   provide: DATABASE_POOL,
@@ -20,7 +25,7 @@ export const databasePoolProvider = {
     let ca: string | undefined;
     if (caPath) {
       try {
-        ca = readFileSync(caPath, 'utf8');
+        ca = readFileSync(resolve(backendDirectory, caPath), 'utf8');
       } catch {
         throw new Error(
           'No se pudo leer DATABASE_CA_PATH. Descargá el certificado CA de Supabase y revisá su ruta.',
