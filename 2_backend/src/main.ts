@@ -11,4 +11,9 @@ async function bootstrap() {
   const config = app.get(ConfigService<Environment, true>);
   await app.listen(config.get('PORT', { infer: true }));
 }
-await bootstrap();
+// Vercel espera a que termine import(main) antes de abrir el servidor capturado.
+// Esperar bootstrap() en el nivel superior bloquearía ese ciclo de arranque.
+void bootstrap().catch((error: unknown) => {
+  console.error('No se pudo iniciar la API.', error);
+  process.exit(1);
+});
