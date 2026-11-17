@@ -10,7 +10,7 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
         'Las operaciones de acceso son públicas cuando así se indica; las demás requieren un accessToken Bearer y un perfil activo. ' +
         'El acceso es por invitación y el MVP asigna ADMINISTRADOR a los miembros. ' +
         'Los cuerpos rechazan propiedades desconocidas. Los ejemplos contienen valores ficticios. ' +
-        'Solo se enumeran endpoints implementados; los módulos de productos, ventas y reportes se incorporarán de forma incremental.',
+        'El documento enumera los endpoints implementados.',
     )
     .setVersion('0.1.0')
     .setOpenAPIVersion('3.0.3')
@@ -19,6 +19,11 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
     .addTag(
       'Users',
       'Invitaciones y administración de miembros. Requiere ADMINISTRADOR activo.',
+    )
+    .addTag('Products', 'Consulta y administración del catálogo de productos.')
+    .addTag(
+      'Product Categories',
+      'Consulta y administración de categorías de productos.',
     )
     .addTag('Health', 'Disponibilidad de la API y PostgreSQL; acceso público.')
     .addBearerAuth({
