@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { configureApp } from '../dist/config/configure-app.js';
 import { DATABASE_POOL } from '../dist/infrastructure/database/database.provider.js';
+import { AuthService } from '../dist/modules/auth/auth.service.js';
 import type { OpenAPIObject, OperationObject } from '@nestjs/swagger';
 
 describe('Base de la API (e2e)', () => {
@@ -32,6 +33,13 @@ describe('Base de la API (e2e)', () => {
     })
       .overrideProvider(DATABASE_POOL)
       .useValue(pool)
+      .overrideProvider(AuthService)
+      .useValue({
+        authenticate: vi.fn(async (token: string) => ({
+          id: '11111111-1111-4111-8111-111111111111',
+          role: token === 'admin' ? 'ADMINISTRADOR' : 'OPERADOR',
+        })),
+      })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -195,6 +203,41 @@ describe('Base de la API (e2e)', () => {
       .set('Origin', 'http://localhost:5173')
       .expect(200)
       .expect('Access-Control-Allow-Origin', 'http://localhost:5173');
+  });
+
+  it('protege las consultas y reserva la escritura del catálogo a administradores', async () => {
+    await request(app.getHttpServer()).get('/api/products').expect(401);
+    await request(app.getHttpServer())
+      .post('/api/product-categories')
+      .set('Authorization', 'Bearer operador')
+      .send({ name: 'Macetas' })
+      .expect(403);
+  });
+
+  it('valida los filtros y cuerpos del catálogo antes de consultar la base', async () => {
+    query.mockClear();
+    const http = request(app.getHttpServer());
+    await http
+      .get('/api/products?status=unknown')
+      .set('Authorization', 'Bearer admin')
+      .expect(400);
+    await http
+      .get('/api/products/0')
+      .set('Authorization', 'Bearer admin')
+      .expect(400);
+    for (const body of [
+      { name: null },
+      { manualCost: -1 },
+      { weightGrams: 10 },
+      {},
+    ]) {
+      await http
+        .patch('/api/products/1')
+        .set('Authorization', 'Bearer admin')
+        .send(body)
+        .expect(400);
+    }
+    expect(query).not.toHaveBeenCalled();
   });
 
   afterAll(async () => {

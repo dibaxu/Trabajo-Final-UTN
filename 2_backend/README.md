@@ -56,7 +56,20 @@ Estos comandos compilan y leen los metadatos de la API sin conectarse a PostgreS
 
 Para probar los endpoints manualmente, abrir la [colección y el entorno YAML v3 de Postman](postman/README.md) en Local Mode. Incluyen el flujo por invitación, guardado automático de tokens y pruebas de acceso desactivado o sesión cerrada.
 
-El acceso por invitación está implementado. Incluye login, renovación, verificación de enlaces, contraseña, recuperación, logout, perfil, listado de miembros, invitaciones y cambio de estado. Las rutas de negocio requieren una sesión válida y un perfil activo por defecto. Los CRUD de productos, ventas y demás módulos siguen pendientes. Ver el [contrato, diseño y puesta en marcha de autenticación](../4_docs/autenticacion.md).
+El acceso por invitación está implementado. Incluye login, renovación, verificación de enlaces, contraseña, recuperación, logout, perfil, listado de miembros, invitaciones y cambio de estado. Las rutas de negocio requieren una sesión válida y un perfil activo por defecto. Ver el [contrato, diseño y puesta en marcha de autenticación](../4_docs/autenticacion.md).
+
+## Catálogo
+
+| Operación | Rutas |
+| --- | --- |
+| Consultar productos | `GET /api/products?search=mac&categoryId=1&status=active`, `GET /api/products/:id` |
+| Administrar productos | `POST /api/products`, `PATCH /api/products/:id`, `PATCH /api/products/:id/status` |
+| Consultar categorías | `GET /api/product-categories` |
+| Administrar categorías | `POST /api/product-categories`, `PATCH /api/product-categories/:id` |
+
+Las escrituras requieren el rol `ADMINISTRADOR`. Para dar de alta un producto, enviá al menos `name` y `categoryId`. El producto admite un `manualCost` opcional de hasta dos decimales. Enviar `null` elimina el costo manual y enviar `0` registra un costo de cero. Los importes se expresan como números JSON. El peso corresponde a cada futura estimación de costo. `imageUrl` y `stock` se devuelven como `null` hasta incorporar Storage e Inventario.
+
+El catálogo conserva los registros al desactivarlos. Los nombres de categoría y los SKU se comparan sin distinguir mayúsculas. Si la base ya tiene registros duplicados con esa regla, resolvé esos duplicados antes de aplicar la [migración del catálogo](supabase/migrations/20261117000442_catalogo_productos.sql).
 
 ## Estructura y convenciones
 
@@ -88,6 +101,8 @@ npm run test:e2e
 ```
 
 Para ejecutar lo compilado: `npm run start:prod` después de `npm run build`.
+
+Para incluir las pruebas de acceso y catálogo con PostgreSQL real, configurá `AUTH_TEST_DATABASE_URL` con una base local vacía llamada `auth_test` antes de ejecutar `npm run test:e2e`. La suite crea y elimina sus esquemas de prueba.
 
 ## Migraciones
 
