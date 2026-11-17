@@ -50,6 +50,8 @@ NestJS 12 publica módulos ESM y `@nestjs/throttler` 6.7.1 los carga mediante `r
 
 El certificado público `certs/prod-ca-2021.crt` debe estar versionado. El código lo lee con una URL literal relativa al módulo para que Node File Trace, utilizado por Vercel, lo incluya automáticamente en la función. Las rutas relativas de `DATABASE_CA_PATH` se resuelven desde `2_backend` tanto al ejecutar TypeScript como al ejecutar `dist`. Para otro archivo CA, también es necesario garantizar su inclusión en el paquete de despliegue.
 
+El entrypoint inicia `bootstrap()` sin `await` en el nivel superior. El adaptador de Vercel captura `server.listen()` durante la importación y abre el servidor después; esperar el arranque desde el propio módulo provoca un bloqueo circular. Los errores del arranque se registran y finalizan el proceso con código 1. La prueba `test/vercel-startup.e2e-spec.ts` reproduce ese contrato y verifica health, Swagger y el preflight CORS sin conexiones a servicios externos.
+
 Guardar la variable **antes** de crear un nuevo deploy. Los despliegues existentes conservan su configuración anterior. Después del deploy, comprobar `/api/health` y el inicio de sesión desde el frontend.
 
 ### Local
