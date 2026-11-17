@@ -25,7 +25,15 @@ export const databasePoolProvider = {
     let ca: string | undefined;
     if (caPath) {
       try {
-        ca = readFileSync(resolve(backendDirectory, caPath), 'utf8');
+        const configuredPath = resolve(backendDirectory, caPath);
+        ca =
+          configuredPath === resolve(backendDirectory, 'certs/prod-ca-2021.crt')
+            ? // La URL literal permite que Node File Trace incluya la CA en Vercel.
+              readFileSync(
+                new URL('../../../certs/prod-ca-2021.crt', import.meta.url),
+                'utf8',
+              )
+            : readFileSync(configuredPath, 'utf8');
       } catch {
         throw new Error(
           'No se pudo leer DATABASE_CA_PATH. Descargá el certificado CA de Supabase y revisá su ruta.',

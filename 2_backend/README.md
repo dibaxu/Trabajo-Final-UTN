@@ -36,7 +36,7 @@ Los parámetros SSL de `DATABASE_URL` se reemplazan por `DATABASE_SSL` y `DATABA
 
 ### Vercel
 
-Configurar **Root Directory** como `2_backend`. El campo `engines.node` de `package.json` fija Node.js `24.x`.
+Configurar **Root Directory** como `2_backend`, **Framework Preset** como NestJS y **Node.js Version** como `24.x` en el panel. `vercel.json` declara el framework y no necesita reglas `functions`.
 
 Además de las variables de la tabla anterior, agregar en las variables del proyecto de Vercel, para Production y para los Preview que usen este backend:
 
@@ -48,7 +48,7 @@ DATABASE_SSL=true
 
 NestJS 12 publica módulos ESM y `@nestjs/throttler` 6.7.1 los carga mediante `require()`. Si el runtime deshabilita esa interoperabilidad, la función falla al cargar con `ERR_REQUIRE_ESM`, antes de atender el login. La opción habilita esa carga; no hace falta modificar archivos de `node_modules`.
 
-`vercel.json` incluye `certs/**` en la función de `src/main.ts`. El certificado público debe estar versionado: configurar solo `DATABASE_CA_PATH` no garantiza que Vercel lo empaquete. Las rutas relativas del certificado se resuelven desde `2_backend` tanto al ejecutar TypeScript como al ejecutar `dist`.
+El certificado público `certs/prod-ca-2021.crt` debe estar versionado. El código lo lee con una URL literal relativa al módulo para que Node File Trace, utilizado por Vercel, lo incluya automáticamente en la función. Las rutas relativas de `DATABASE_CA_PATH` se resuelven desde `2_backend` tanto al ejecutar TypeScript como al ejecutar `dist`. Para otro archivo CA, también es necesario garantizar su inclusión en el paquete de despliegue.
 
 Guardar la variable **antes** de crear un nuevo deploy. Los despliegues existentes conservan su configuración anterior. Después del deploy, comprobar `/api/health` y el inicio de sesión desde el frontend.
 
