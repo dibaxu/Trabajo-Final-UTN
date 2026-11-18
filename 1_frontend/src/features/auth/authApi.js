@@ -31,3 +31,37 @@ export async function logout() {
     clearSession()
   }
 }
+
+/**
+ * POST /api/auth/verify → SessionDto. Consume el enlace del correo (de un solo uso).
+ * NO guarda la sesión: queda en memoria hasta que la persona define su contraseña.
+ */
+export function verifyLink(tokenHash, type) {
+  return IS_MOCK
+    ? mockAuth.verifyLink(tokenHash, type)
+    : publicRequest('/auth/verify', { method: 'POST', body: { tokenHash, type } })
+}
+
+/**
+ * PATCH /api/auth/password → SessionDto. Define la contraseña con la sesión devuelta
+ * por `verifyLink` y guarda la sesión vigente que responde el servidor.
+ * Si la contraseña es rechazada (400) la sesión verificada sigue siendo válida.
+ */
+export async function setPassword(verifiedSession, password) {
+  const session = IS_MOCK
+    ? await mockAuth.setPassword(verifiedSession, password)
+    : await publicRequest('/auth/password', {
+        method: 'PATCH',
+        token: verifiedSession.accessToken,
+        body: { password, refreshToken: verifiedSession.refreshToken },
+      })
+  saveSession(session)
+  return session
+}
+
+/** POST /api/auth/forgot-password (202). Respuesta genérica: no revela si el correo existe. */
+export function requestPasswordReset(email) {
+  return IS_MOCK
+    ? mockAuth.requestPasswordReset(email)
+    : publicRequest('/auth/forgot-password', { method: 'POST', body: { email: email.trim() } })
+}

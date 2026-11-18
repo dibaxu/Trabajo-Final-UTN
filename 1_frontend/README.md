@@ -43,6 +43,8 @@ El proyecto se entrega en dos partes que **no comparten archivos**: la parte 2 s
 | Ruta | Historia | Acceso | Parte |
 | --- | --- | --- | --- |
 | `/login` | HU01 | público | 1 |
+| `/auth/accept-invitation` | HU01 / HU15 (enlace del correo de invitación) | público | — |
+| `/auth/reset-password`, `/auth/forgot-password` | HU01 (recuperar contraseña) | público | — |
 | `/productos`, `/productos/nuevo`, `/productos/:id` | HU02 | todos | 1 |
 | `/costos`, `/costos/historial` | HU03 | todos | 1 |
 | `/costos/parametros` | HU13 | administrador | 1 |
@@ -56,6 +58,16 @@ El proyecto se entrega en dos partes que **no comparten archivos**: la parte 2 s
 | `/usuarios` | HU15 | administrador | 2 |
 
 \* Los operadores pueden habilitarse con `OPERATOR_CAN_VIEW_DASHBOARD` en `src/features/auth/permissions.js`.
+
+## Invitaciones y recuperación de contraseña
+
+El acceso es solo por invitación (ver `4_docs/autenticacion.md`). El correo de Supabase abre `/auth/accept-invitation#token_hash=...`:
+
+1. La pantalla lee `token_hash` del fragmento, lo borra de la barra de direcciones y llama a `POST /api/auth/verify` con `type: "invite"` (el enlace es de un solo uso).
+2. Con la sesión devuelta, la persona define su contraseña (mínimo 12 caracteres) y se llama a `PATCH /api/auth/password`. Si el servidor rechaza la contraseña, puede corregirla sin volver a abrir el enlace.
+3. Se guarda la sesión vigente y se entra a la aplicación.
+
+La recuperación usa `/auth/forgot-password` (pide el correo; la respuesta es genérica) y `/auth/reset-password#token_hash=...` con `type: "recovery"`. Para que los enlaces funcionen hay que configurar en Supabase la **Site URL** con la dirección publicada del frontend y copiar las plantillas de `2_backend/supabase/templates`. En modo demo (`VITE_API_MODE=mock`) se puede probar con `/auth/accept-invitation#token_hash=demo`.
 
 ## Estructura y cómo se suma un módulo
 
