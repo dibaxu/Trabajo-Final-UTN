@@ -67,14 +67,19 @@ export function AuthProvider({ children }) {
     setState({ status: 'authenticated', user: session.user })
   }, [])
 
+  // Para cuando la sesión ya la guardó otro flujo (aceptar invitación, nueva contraseña).
+  const acceptSession = useCallback((session) => {
+    setState({ status: 'authenticated', user: session.user })
+  }, [])
+
   const logout = useCallback(async () => {
     await authApi.logout()
     setAnonymous()
   }, [setAnonymous])
 
   const value = useMemo(
-    () => ({ ...state, login, logout }),
-    [state, login, logout],
+    () => ({ ...state, login, acceptSession, logout }),
+    [state, login, acceptSession, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

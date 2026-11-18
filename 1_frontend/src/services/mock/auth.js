@@ -29,3 +29,5 @@ export async function me() {
   if (!p.isActive) throw new ApiError(403, 'Acceso deshabilitado.')
   return userOf(p)
 }
+
+export { verifyLink, setPassword, requestPasswordReset } from './invitations.js'

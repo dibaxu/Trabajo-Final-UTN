@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { useAuth } from './useAuth.js'
 import { ApiError } from '../../lib/http.js'
 import { BRAND } from '../../config/brand.js'
@@ -102,7 +102,7 @@ export default function LoginPage() {
             />
           </label>
 
-          <label className="mb-6 block">
+          <label className="mb-2 block">
             <span className="mb-1.5 block text-sm font-medium text-ink-700">
               Contraseña
             </span>
@@ -115,6 +115,12 @@ export default function LoginPage() {
               disabled={submitting}
             />
           </label>
+
+          <p className="mb-6 text-right text-sm">
+            <Link to="/auth/forgot-password" className="text-brand-600 hover:underline">
+              Olvidé mi contraseña
+            </Link>
+          </p>
 
           <button
             type="submit"
