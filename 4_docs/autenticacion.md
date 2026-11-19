@@ -33,8 +33,8 @@ Las rutas de negocio requieren autenticación por defecto. `@Public()` marca exc
 2. Se crea una cuenta Supabase sin contraseña y sin confirmar el correo. Si ya existe una cuenta pendiente, se reutiliza; una cuenta confirmada produce `409`.
 3. Se crea su perfil con el rol fijo y `invited_by`. Una repetición no modifica el estado, nombre o rol de un perfil existente ni reactiva uno deshabilitado.
 4. Se envía la invitación con `inviteUserByEmail`. El perfil existe antes de que el correo pueda utilizarse.
-5. El correo abre la pantalla del frontend para aceptar la invitación. El frontend extrae `token_hash` del fragmento, lo elimina de la URL y hace `POST /auth/verify` con tipo `invite`.
-6. Con la sesión devuelta, la persona define su contraseña mediante `PATCH /auth/password` y conserva los tokens vigentes devueltos por esa operación. El enlace solo puede verificarse una vez. Si la contraseña es rechazada, se conserva la sesión para corregirla sin volver a consumir el enlace.
+5. Con la plantilla estándar, el correo abre `/auth/v1/verify` de Supabase, que consume el enlace y redirige a `/auth/accept-invitation` con `access_token`, `refresh_token`, vencimiento y `type=invite` en el fragmento. El frontend elimina esos datos de la URL y valida la sesión y el perfil con `GET /auth/me`, usando el token recibido, aunque haya otra cuenta abierta. También admite las plantillas propias con `token_hash`: en ese caso hace `POST /auth/verify` con tipo `invite`.
+6. Con la sesión validada, conservada solo en memoria, la persona define su contraseña mediante `PATCH /auth/password` y guarda los tokens vigentes devueltos por esa operación. El enlace solo puede verificarse una vez. Si la contraseña es rechazada, se conserva la sesión para corregirla sin volver a consumir el enlace. Recuperar contraseña usa el mismo flujo en `/auth/reset-password` con `type=recovery`. Los retornos con errores, tokens incompletos o un tipo distinto al de la pantalla se rechazan sin usar la sesión de otra cuenta.
 
 Crear la cuenta/perfil y enviar correo no es una transacción distribuida. Ante un fallo se conservan los pasos ya completados y se puede repetir la invitación pendiente. No se borra una identidad como compensación ni se guarda un token de invitación propio. Si una llamada de creación compite con otra, se recupera la cuenta pendiente desde la base. Un perfil desactivado produce `403` y exige reactivación explícita.
 
@@ -50,7 +50,16 @@ RLS permanece habilitado y las tablas de negocio siguen sin permisos para `anon`
 
 Se requiere `SUPABASE_SECRET_KEY` en el entorno del backend, además de la clave publicable. Se admite la clave secreta actual o la `service_role` heredada.
 
-En Supabase remoto hay que deshabilitar **Allow new users to sign up**, deshabilitar usuarios anónimos, configurar Site URL/orígenes, exigir contraseñas de al menos 12 caracteres y configurar SMTP. `supabase/config.toml` solo afecta al entorno local. Copiar las plantillas de `supabase/templates` en los tipos Invite user y Reset password del Dashboard. Los enlaces apuntan al frontend y este entrega el hash a la API por POST.
+En Supabase remoto hay que deshabilitar **Allow new users to sign up**, deshabilitar usuarios anónimos, configurar Site URL/orígenes y exigir contraseñas de al menos 12 caracteres. `supabase/config.toml` solo afecta al entorno local. Las plantillas estándar funcionan sin personalizarlas: Supabase verifica el enlace y devuelve los tokens al frontend. El SMTP incluido tiene restricciones de destinatarios y frecuencia; para enviar correos a usuarios generales se requiere SMTP propio.
+
+En **URL Configuration**, usar el origen del frontend como Site URL y permitir las rutas exactas de retorno. Para el sitio publicado:
+
+```text
+https://trabajo-final-utn-frontend.netlify.app/auth/accept-invitation
+https://trabajo-final-utn-frontend.netlify.app/auth/reset-password
+```
+
+El backend debe tener `FRONTEND_ORIGIN` configurado con ese mismo origen. Opcionalmente, se pueden copiar las plantillas de `supabase/templates` en los tipos Invite user y Reset password del Dashboard: esos enlaces apuntan directamente al frontend con `token_hash`, que se entrega a la API por POST.
 
 Primer administrador (operación del propietario, sin endpoint público): crear una cuenta con **Invite user** desde el Dashboard y, antes de consumir el correo, crear su perfil con el siguiente SQL, reemplazando correo y nombre:
 
