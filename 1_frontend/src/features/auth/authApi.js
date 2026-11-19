@@ -42,9 +42,15 @@ export function verifyLink(tokenHash, type) {
     : publicRequest('/auth/verify', { method: 'POST', body: { tokenHash, type } })
 }
 
+/** Valida con la API los tokens del retorno estándar, sin guardar ni usar otra sesión abierta. */
+export async function verifyLinkSession(tokens) {
+  const user = await publicRequest('/auth/me', { token: tokens.accessToken })
+  return { ...tokens, user }
+}
+
 /**
  * PATCH /api/auth/password → SessionDto. Define la contraseña con la sesión devuelta
- * por `verifyLink` y guarda la sesión vigente que responde el servidor.
+ * por `verifyLink` o `verifyLinkSession` y guarda la sesión vigente que responde el servidor.
  * Si la contraseña es rechazada (400) la sesión verificada sigue siendo válida.
  */
 export async function setPassword(verifiedSession, password) {

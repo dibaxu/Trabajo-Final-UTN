@@ -6,11 +6,12 @@ import { ApiError } from '../../lib/http.js'
 import { IS_MOCK } from '../../services/mode.js'
 import { AuthAlert, AuthLayout } from './AuthLayout.jsx'
 import { inputClass } from './authStyles.js'
-import { PASSWORD_MIN, readHashToken, validateNewPassword } from './passwordLinks.js'
+import { PASSWORD_MIN, readPasswordLink, validateNewPassword } from './passwordLinks.js'
 
 // Un mismo flujo para dos correos distintos:
-//   invite   → /auth/accept-invitation#token_hash=...  (primera contraseña)
-//   recovery → /auth/reset-password#token_hash=...     (contraseña olvidada)
+//   invite   → /auth/accept-invitation (primera contraseña)
+//   recovery → /auth/reset-password (contraseña olvidada)
+// Ambos aceptan tokens de sesión de Supabase o token_hash de plantillas propias.
 const COPY = {
   invite: {
     title: 'Aceptar invitación',
@@ -47,7 +48,7 @@ function verifyMessage(error, copy) {
   }
 }
 
-// Errores que no consumen el enlace: tiene sentido reintentar con el mismo token.
+// Fallos transitorios: permitir reintentar con los datos conservados en memoria.
 const isRetryable = (error) =>
   error instanceof ApiError && [0, 429, 500, 503].includes(error.status)
 
@@ -76,9 +77,9 @@ export default function SetPasswordPage({ type }) {
 
   // 'verifying' | 'form' | 'failed' | 'missing' (no hay token en la URL)
   const [phase, setPhase] = useState(() =>
-    readHashToken(window.location.hash) ? 'verifying' : 'missing',
+    readPasswordLink(window.location.hash, type) ? 'verifying' : 'missing',
   )
-  const [verified, setVerified] = useState(null) // sesión devuelta por /auth/verify (solo en memoria)
+  const [verified, setVerified] = useState(null) // sesión validada por la API (solo en memoria)
   const [failure, setFailure] = useState({ message: '', retryable: false })
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
@@ -86,12 +87,18 @@ export default function SetPasswordPage({ type }) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const tokenRef = useRef(null)
+  const linkRef = useRef(null)
   const startedRef = useRef(false)
 
   const runVerify = useCallback(async () => {
     try {
-      const session = await authApi.verifyLink(tokenRef.current, type)
+      const link = linkRef.current
+      if (link?.kind !== 'session' && link?.kind !== 'hash') {
+        throw new ApiError(401, 'Enlace inválido o vencido.')
+      }
+      const session = link.kind === 'session'
+        ? await authApi.verifyLinkSession(link.session)
+        : await authApi.verifyLink(link.tokenHash, type)
       setVerified(session)
       setPhase('form')
     } catch (err) {
@@ -104,13 +111,13 @@ export default function SetPasswordPage({ type }) {
     // Evita consumir el enlace dos veces (React StrictMode ejecuta los efectos dos veces en desarrollo).
     if (startedRef.current) return
     startedRef.current = true
-    const token = readHashToken(window.location.hash)
-    if (!token) return
-    tokenRef.current = token
-    // El token no debe quedar en la barra de direcciones ni en el historial.
+    const link = readPasswordLink(window.location.hash, type)
+    if (!link) return
+    linkRef.current = link
+    // Los tokens y errores de Auth no deben quedar en la barra ni en el historial.
     window.history.replaceState(null, '', window.location.pathname + window.location.search)
     runVerify()
-  }, [runVerify])
+  }, [runVerify, type])
 
   // Sin token y con sesión iniciada no hay nada que hacer acá.
   if (phase === 'missing' && status === 'authenticated') return <Navigate to="/" replace />
