@@ -22,6 +22,10 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
     )
     .addTag('Products', 'Consulta y administración del catálogo de productos.')
     .addTag(
+      'Inventory',
+      'Producción, ajustes, existencias e historial de movimientos.',
+    )
+    .addTag(
       'Product Categories',
       'Consulta y administración de categorías de productos.',
     )

@@ -89,9 +89,28 @@ El acceso por invitación está implementado. Incluye login, renovación, verifi
 | Consultar categorías | `GET /api/product-categories` |
 | Administrar categorías | `POST /api/product-categories`, `PATCH /api/product-categories/:id` |
 
-Las escrituras requieren el rol `ADMINISTRADOR`. Para dar de alta un producto, enviá al menos `name` y `categoryId`. El producto admite un `manualCost` opcional de hasta dos decimales. Enviar `null` elimina el costo manual y enviar `0` registra un costo de cero. Los importes se expresan como números JSON. El peso corresponde a cada futura estimación de costo. `imageUrl` y `stock` se devuelven como `null` hasta incorporar Storage e Inventario.
+Las escrituras requieren el rol `ADMINISTRADOR`. Para dar de alta un producto, enviá al menos `name` y `categoryId`. El producto admite un `manualCost` opcional de hasta dos decimales. Enviar `null` elimina el costo manual y enviar `0` registra un costo de cero. Los importes se expresan como números JSON. El peso corresponde a cada futura estimación de costo. `imageUrl` se devuelve como `null` hasta incorporar Storage. `stock` es numérico y vale cero cuando el producto todavía no tiene movimientos.
 
 El catálogo conserva los registros al desactivarlos. Los nombres de categoría y los SKU se comparan sin distinguir mayúsculas. Si la base ya tiene registros duplicados con esa regla, resolvé esos duplicados antes de aplicar la [migración del catálogo](supabase/migrations/20261117000442_catalogo_productos.sql).
+
+## Inventario
+
+| Operación | Ruta y entrada |
+| --- | --- |
+| Consultar existencias | `GET /api/stock?search=mac&categoryId=1&availability=available` |
+| Registrar producción | `POST /api/stock/production` con `{ "productId": 1, "quantity": 10, "note": "Lote PLA" }` |
+| Ajustar existencias | `POST /api/stock/adjustments` con `{ "productId": 1, "direction": "DECREASE", "quantity": 2, "reason": "Piezas dañadas" }` |
+| Consultar movimientos | `GET /api/stock/movements?productId=1&type=PRODUCCION&from=2026-11-01&to=2026-11-30` |
+
+Producción y consulta de existencias requieren un perfil activo. Los ajustes y el historial requieren `ADMINISTRADOR`. Las cantidades son enteros entre 1 y 2147483647. `direction` admite `INCREASE` y `DECREASE`; `availability` admite `available` y `out`. La observación es opcional y el motivo del ajuste es obligatorio, ambos con hasta 200 caracteres.
+
+Las escrituras responden `201` con `{ movement, stockBefore, stockAfter }`. El servidor asigna fecha y usuario. Cada POST confirmado registra una operación nueva. Un producto inexistente devuelve `404`; un producto inactivo o datos inválidos devuelven `400`; un ajuste con stock insuficiente devuelve `409`.
+
+Los filtros de fecha incluyen ambos días completos en `America/Argentina/Buenos_Aires`. El historial incluye productos inactivos y admite `PRODUCCION`, `AJUSTE_POSITIVO` y `AJUSTE_NEGATIVO`, ordenados por fecha e identificador descendentes. Las consultas devuelven listas completas.
+
+`InventoryService` concentra las consultas de movimientos, el cálculo de saldos y las transacciones. Bloquea la fila del producto antes de calcular el saldo y registrar una entrada o salida, coordinando las escrituras simultáneas y los cambios de estado del producto. Las correcciones se registran como movimientos nuevos. La interfaz compartida `getBalances(productIds, client?)` entrega existencias por lote y permite usar una transacción existente. Productos consume esa interfaz para incluir stock.
+
+La [migración de Inventario](supabase/migrations/20261121200218_inventario_movimientos.sql) crea el historial con sus claves foráneas, restricciones de signo y motivo, índices y RLS. Conserva bloqueado el acceso de `anon` y `authenticated`. Las relaciones con detalles de ventas y devoluciones se incorporarán junto con esos módulos.
 
 ## Estructura y convenciones
 
@@ -124,7 +143,7 @@ npm run test:e2e
 
 Para ejecutar lo compilado: `npm run start:prod` después de `npm run build`.
 
-Para incluir las pruebas de acceso y catálogo con PostgreSQL real, configurá `AUTH_TEST_DATABASE_URL` con una base local vacía llamada `auth_test` antes de ejecutar `npm run test:e2e`. La suite crea y elimina sus esquemas de prueba.
+Para incluir las pruebas de acceso, catálogo e inventario con PostgreSQL real, configurá `AUTH_TEST_DATABASE_URL` con una base local vacía llamada `auth_test` antes de ejecutar `npm run test:e2e`. La suite crea y elimina sus esquemas de prueba.
 
 ## Migraciones
 

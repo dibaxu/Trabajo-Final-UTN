@@ -242,9 +242,11 @@ export class ProductDto {
 
   @ApiProperty({
     type: 'integer',
-    nullable: true,
-    example: null,
-    description: 'Existencias. Devuelve null hasta implementar Inventario.',
+    minimum: 0,
+    maximum: Number.MAX_SAFE_INTEGER,
+    example: 0,
+    description:
+      'Existencias calculadas por Inventario. Sin movimientos devuelve cero.',
   })
-  stock: number | null;
+  stock: number;
 }

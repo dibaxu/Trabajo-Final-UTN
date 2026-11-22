@@ -2348,6 +2348,626 @@
         ]
       }
     },
+    "/api/stock": {
+      "get": {
+        "description": "Combina búsqueda por nombre o SKU, categoría y disponibilidad. Calcula el stock sumando movimientos; sin movimientos devuelve cero.",
+        "operationId": "stockList",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Búsqueda por nombre o SKU, sin distinguir mayúsculas.",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "example": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "availability",
+            "required": false,
+            "in": "query",
+            "description": "available incluye stock positivo; out incluye stock cero.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "available",
+                "out"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Productos activos ordenados por nombre e identificador.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta las existencias de productos activos",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/stock/movements": {
+      "get": {
+        "description": "Requiere administrador. Incluye productos activos e inactivos. Las fechas from y to incluyen ambos días en America/Argentina/Buenos_Aires. Los movimientos conservan fecha y usuario responsable.",
+        "operationId": "stockMovements",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "example": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PRODUCCION",
+                "AJUSTE_POSITIVO",
+                "AJUSTE_NEGATIVO"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Primer día incluido, en America/Argentina/Buenos_Aires.",
+            "schema": {
+              "format": "date",
+              "example": "2026-11-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Último día incluido, en America/Argentina/Buenos_Aires.",
+            "schema": {
+              "format": "date",
+              "example": "2026-11-30",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Movimientos ordenados por fecha e identificador descendentes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockMovementDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta el historial de movimientos",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/stock/production": {
+      "post": {
+        "description": "Crea una entrada para un producto activo. La fecha y el usuario se asignan en el servidor. Cada POST confirmado registra una operación nueva.",
+        "operationId": "stockRegisterProduction",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterProductionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Movimiento registrado y existencias antes y después de la operación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockChangeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "El stock resultante supera el rango permitido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registra unidades producidas",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/stock/adjustments": {
+      "post": {
+        "description": "Requiere administrador y producto activo. Crea un movimiento positivo o negativo y comprueba el saldo dentro de la transacción. Cada POST confirmado registra una operación nueva.",
+        "operationId": "stockAdjust",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustStockDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ajuste registrado y existencias antes y después de la operación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockChangeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "El producto no existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "El ajuste dejaría stock negativo o superaría el rango permitido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ajusta las existencias con un motivo",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "description": "Endpoint público de disponibilidad. Ejecuta una consulta mínima a PostgreSQL; no requiere JWT y no usa el limitador de peticiones de acceso. El error 503 conserva el cuerpo de salud, distinto del formato general de errores.",
@@ -2400,6 +3020,10 @@
     {
       "name": "Products",
       "description": "Consulta y administración del catálogo de productos."
+    },
+    {
+      "name": "Inventory",
+      "description": "Producción, ajustes, existencias e historial de movimientos."
     },
     {
       "name": "Product Categories",
@@ -2806,9 +3430,10 @@
           },
           "stock": {
             "type": "integer",
-            "nullable": true,
-            "example": null,
-            "description": "Existencias. Devuelve null hasta implementar Inventario."
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "example": 0,
+            "description": "Existencias calculadas por Inventario. Sin movimientos devuelve cero."
           }
         },
         "required": [
@@ -2993,6 +3618,203 @@
             "example": false
           }
         }
+      },
+      "StockDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Maceta geométrica"
+          },
+          "sku": {
+            "type": "string",
+            "nullable": true,
+            "example": "MAC-01"
+          },
+          "categoryId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "categoryName": {
+            "type": "string",
+            "example": "Macetas"
+          },
+          "stock": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "example": 10
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "sku",
+          "categoryId",
+          "categoryName",
+          "stock"
+        ]
+      },
+      "StockMovementDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "productId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "productName": {
+            "type": "string",
+            "example": "Maceta geométrica"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "PRODUCCION",
+              "AJUSTE_POSITIVO",
+              "AJUSTE_NEGATIVO"
+            ]
+          },
+          "quantityDelta": {
+            "type": "integer",
+            "example": -2,
+            "description": "Cantidad con signo. Positivo indica entrada y negativo indica salida."
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "example": "Piezas dañadas."
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-21T15:30:00.000Z"
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid",
+            "example": "11111111-1111-4111-8111-111111111111"
+          },
+          "createdByName": {
+            "type": "string",
+            "example": "Pedro"
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "productName",
+          "type",
+          "quantityDelta",
+          "reason",
+          "occurredAt",
+          "createdBy",
+          "createdByName"
+        ]
+      },
+      "RegisterProductionDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "example": 10
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200,
+            "example": "Lote de impresión terminado."
+          }
+        },
+        "required": [
+          "productId",
+          "quantity"
+        ]
+      },
+      "StockChangeDto": {
+        "type": "object",
+        "properties": {
+          "movement": {
+            "$ref": "#/components/schemas/StockMovementDto"
+          },
+          "stockBefore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "example": 10
+          },
+          "stockAfter": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "example": 8
+          }
+        },
+        "required": [
+          "movement",
+          "stockBefore",
+          "stockAfter"
+        ]
+      },
+      "AdjustStockDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "INCREASE",
+              "DECREASE"
+            ],
+            "example": "DECREASE"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "example": 2
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Piezas dañadas."
+          }
+        },
+        "required": [
+          "productId",
+          "direction",
+          "quantity",
+          "reason"
+        ]
       },
       "HealthDto": {
         "type": "object",
