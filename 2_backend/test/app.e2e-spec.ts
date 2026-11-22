@@ -10,7 +10,13 @@ import type { OpenAPIObject, OperationObject } from '@nestjs/swagger';
 describe('Base de la API (e2e)', () => {
   let app: INestApplication;
   const query = vi.fn();
-  const pool = { query, on: vi.fn(), end: vi.fn(async () => undefined) };
+  const release = vi.fn();
+  const pool = {
+    query,
+    connect: vi.fn(async () => ({ query, release })),
+    on: vi.fn(),
+    end: vi.fn(async () => undefined),
+  };
 
   beforeAll(async () => {
     vi.stubEnv('NODE_ENV', 'test');
@@ -238,6 +244,179 @@ describe('Base de la API (e2e)', () => {
         .expect(400);
     }
     expect(query).not.toHaveBeenCalled();
+  });
+
+  it('protege inventario y reserva ajustes e historial a administradores', async () => {
+    await request(app.getHttpServer()).get('/api/stock').expect(401);
+    await request(app.getHttpServer())
+      .post('/api/stock/production')
+      .send({ productId: 1, quantity: 1 })
+      .expect(401);
+    await request(app.getHttpServer())
+      .get('/api/stock/movements')
+      .set('Authorization', 'Bearer operador')
+      .expect(403);
+    await request(app.getHttpServer())
+      .post('/api/stock/adjustments')
+      .set('Authorization', 'Bearer operador')
+      .send({
+        productId: 1,
+        quantity: 1,
+        direction: 'INCREASE',
+        reason: 'Conteo',
+      })
+      .expect(403);
+  });
+
+  it('rechaza filtros, fechas y cantidades inválidas antes de acceder a PostgreSQL', async () => {
+    query.mockClear();
+    const http = request(app.getHttpServer());
+    for (const path of [
+      '/api/stock?availability=other',
+      '/api/stock?categoryId=0',
+      '/api/stock/movements?type=VENTA',
+      '/api/stock/movements?from=2026-02-30',
+      '/api/stock/movements?to=2026-01-01T00:00:00Z',
+      '/api/stock/movements?from=2026-11-22&to=2026-11-21',
+      '/api/stock/movements?from=0000-01-01',
+    ]) {
+      await http.get(path).set('Authorization', 'Bearer admin').expect(400);
+    }
+    for (const body of [
+      { productId: 0, quantity: 1 },
+      { productId: 1, quantity: 0 },
+      { productId: 1, quantity: -1 },
+      { productId: 1, quantity: 1.5 },
+      { productId: 1, quantity: 2_147_483_648 },
+      { productId: 1, quantity: '1' },
+      { productId: 1, quantity: 1, createdBy: 'actor' },
+      { productId: 1, quantity: 1, note: 'a'.repeat(201) },
+    ]) {
+      await http
+        .post('/api/stock/production')
+        .set('Authorization', 'Bearer admin')
+        .send(body)
+        .expect(400);
+    }
+    await http
+      .post('/api/stock/adjustments')
+      .set('Authorization', 'Bearer admin')
+      .send({ productId: 1, quantity: 1, direction: 'DECREASE', reason: '   ' })
+      .expect(400);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('publica stock cero y transforma correctamente los filtros numéricos', async () => {
+    query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: '1',
+          name: 'Maceta',
+          sku: 'MAC',
+          categoryId: '2',
+          categoryName: 'Macetas',
+          stock: '0',
+        },
+      ],
+    });
+    const { body } = await request(app.getHttpServer())
+      .get('/api/stock?categoryId=2&availability=out')
+      .set('Authorization', 'Bearer operador')
+      .expect(200);
+    expect(body).toEqual([
+      {
+        id: 1,
+        name: 'Maceta',
+        sku: 'MAC',
+        categoryId: 2,
+        categoryName: 'Macetas',
+        stock: 0,
+      },
+    ]);
+    expect(query).toHaveBeenLastCalledWith(expect.any(String), [
+      null,
+      2,
+      'out',
+    ]);
+  });
+
+  it('registra producción desde HTTP usando la identidad de la sesión y devuelve 201', async () => {
+    query.mockClear();
+    query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rows: [{ is_active: true }] })
+      .mockResolvedValueOnce({ rows: [] }) // Sin movimientos
+      .mockResolvedValueOnce({ rows: [{ id: '1' }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: '1',
+            productId: '2',
+            productName: 'Maceta',
+            type: 'PRODUCCION',
+            quantityDelta: 3,
+            reason: 'Lote',
+            occurredAt: new Date('2026-11-21T15:00:00Z'),
+            createdBy: '11111111-1111-4111-8111-111111111111',
+            createdByName: 'Pedro',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] }); // COMMIT
+    const { body } = await request(app.getHttpServer())
+      .post('/api/stock/production')
+      .set('Authorization', 'Bearer operador')
+      .send({ productId: 2, quantity: 3, note: ' Lote ' })
+      .expect(201);
+    expect(body).toMatchObject({
+      stockBefore: 0,
+      stockAfter: 3,
+      movement: {
+        id: 1,
+        productId: 2,
+        reason: 'Lote',
+        occurredAt: '2026-11-21T15:00:00.000Z',
+      },
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO public.stock_movements'),
+      [2, 'PRODUCCION', 3, 'Lote', '11111111-1111-4111-8111-111111111111'],
+    );
+    expect(query).toHaveBeenLastCalledWith('COMMIT');
+    expect(release).toHaveBeenCalled();
+  });
+
+  it('responde 404, 400 y 409 sin confirmar movimientos rechazados', async () => {
+    for (const scenario of [
+      { product: [], status: 404 },
+      { product: [{ is_active: false }], status: 400 },
+      { product: [{ is_active: true }], status: 409 },
+    ]) {
+      query.mockClear();
+      query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: scenario.product });
+      if (scenario.status === 409)
+        query.mockResolvedValueOnce({
+          rows: [{ product_id: '1', stock: '0' }],
+        });
+      query.mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+      await request(app.getHttpServer())
+        .post('/api/stock/adjustments')
+        .set('Authorization', 'Bearer admin')
+        .send({
+          productId: 1,
+          quantity: 1,
+          direction: 'DECREASE',
+          reason: 'Conteo',
+        })
+        .expect(scenario.status);
+      expect(query).toHaveBeenLastCalledWith('ROLLBACK');
+      expect(query).not.toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO'),
+        expect.anything(),
+      );
+    }
   });
 
   afterAll(async () => {

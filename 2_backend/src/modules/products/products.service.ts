@@ -8,6 +8,7 @@ import {
 import { DatabaseError } from 'pg';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
 import type { TransactionClient } from '../../infrastructure/database/database.service.js';
+import { InventoryService } from '../inventory/inventory.service.js';
 import type {
   CreateCategoryDto,
   CreateProductDto,
@@ -48,7 +49,7 @@ function catalogId(value: string): number {
   return id;
 }
 
-function productView(row: ProductRow): ProductDto {
+function productView(row: ProductRow, stock: number): ProductDto {
   return {
     ...row,
     id: catalogId(row.id),
@@ -56,13 +57,16 @@ function productView(row: ProductRow): ProductDto {
     referenceSalePrice: Number(row.referenceSalePrice),
     manualCost: row.manualCost === null ? null : Number(row.manualCost),
     imageUrl: null,
-    stock: null,
+    stock,
   };
 }
 
 @Injectable()
 export class ProductsService {
-  constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
+  constructor(
+    @Inject(DatabaseService) private readonly db: DatabaseService,
+    @Inject(InventoryService) private readonly inventory: InventoryService,
+  ) {}
 
   async listCategories(): Promise<ProductCategoryDto[]> {
     const { rows } = await this.db.query<CategoryRow>(`
@@ -110,11 +114,12 @@ export class ProductsService {
         filters.status && filters.status === 'active',
       ],
     );
-    return rows.map(productView);
+    return this.productViews(rows);
   }
 
   async getProduct(id: number): Promise<ProductDto> {
-    return productView(await this.findProduct(this.db, id));
+    const row = await this.findProduct(this.db, id);
+    return (await this.productViews([row]))[0];
   }
 
   createProduct(input: CreateProductDto, actorId: string): Promise<ProductDto> {
@@ -135,7 +140,8 @@ export class ProductsService {
           actorId,
         ],
       );
-      return productView(await this.findProduct(client, rows[0].id));
+      const row = await this.findProduct(client, rows[0].id);
+      return (await this.productViews([row], client))[0];
     });
   }
 
@@ -171,7 +177,8 @@ export class ProductsService {
             : input.manualCost,
         ],
       );
-      return productView(await this.findProduct(client, id));
+      const row = await this.findProduct(client, id);
+      return (await this.productViews([row], client))[0];
     });
   }
 
@@ -183,8 +190,22 @@ export class ProductsService {
       );
       if (!result.rowCount)
         throw new NotFoundException('Producto no encontrado.');
-      return productView(await this.findProduct(client, id));
+      const row = await this.findProduct(client, id);
+      return (await this.productViews([row], client))[0];
     });
+  }
+
+  private async productViews(
+    rows: ProductRow[],
+    client: Pick<DatabaseService, 'query'> = this.db,
+  ): Promise<ProductDto[]> {
+    const balances = await this.inventory.getBalances(
+      rows.map((row) => catalogId(row.id)),
+      client,
+    );
+    return rows.map((row) =>
+      productView(row, balances.get(catalogId(row.id))!),
+    );
   }
 
   private async saveCategory(
