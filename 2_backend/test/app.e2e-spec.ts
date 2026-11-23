@@ -5,11 +5,19 @@ import request from 'supertest';
 import { configureApp } from '../dist/config/configure-app.js';
 import { DATABASE_POOL } from '../dist/infrastructure/database/database.provider.js';
 import { AuthService } from '../dist/modules/auth/auth.service.js';
+import { SalesService } from '../dist/modules/sales/sales.service.js';
 import type { OpenAPIObject, OperationObject } from '@nestjs/swagger';
 
 describe('Base de la API (e2e)', () => {
   let app: INestApplication;
   const query = vi.fn();
+  const sales = {
+    create: vi.fn(),
+    list: vi.fn(),
+    get: vi.fn(),
+    cancel: vi.fn(),
+    createReturn: vi.fn(),
+  };
   const release = vi.fn();
   const pool = {
     query,
@@ -46,6 +54,8 @@ describe('Base de la API (e2e)', () => {
           role: token === 'admin' ? 'ADMINISTRADOR' : 'OPERADOR',
         })),
       })
+      .overrideProvider(SalesService)
+      .useValue(sales)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -274,7 +284,7 @@ describe('Base de la API (e2e)', () => {
     for (const path of [
       '/api/stock?availability=other',
       '/api/stock?categoryId=0',
-      '/api/stock/movements?type=VENTA',
+      '/api/stock/movements?type=OTHER',
       '/api/stock/movements?from=2026-02-30',
       '/api/stock/movements?to=2026-01-01T00:00:00Z',
       '/api/stock/movements?from=2026-11-22&to=2026-11-21',
@@ -359,6 +369,9 @@ describe('Base de la API (e2e)', () => {
             occurredAt: new Date('2026-11-21T15:00:00Z'),
             createdBy: '11111111-1111-4111-8111-111111111111',
             createdByName: 'Pedro',
+            saleId: null,
+            saleItemId: null,
+            returnId: null,
           },
         ],
       })
@@ -417,6 +430,129 @@ describe('Base de la API (e2e)', () => {
         expect.anything(),
       );
     }
+  });
+
+  it('protege ventas y reserva anulaciones y devoluciones a administradores', async () => {
+    await request(app.getHttpServer()).get('/api/sales').expect(401);
+    await request(app.getHttpServer()).post('/api/sales').send({}).expect(401);
+    await request(app.getHttpServer())
+      .post('/api/sales/1/cancel')
+      .set('Authorization', 'Bearer operador')
+      .send({ reason: 'Error' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post('/api/sales/1/returns')
+      .set('Authorization', 'Bearer operador')
+      .send({ reason: 'Devuelto', items: [{ saleItemId: 1, quantity: 1 }] })
+      .expect(403);
+  });
+
+  it('valida detalles anidados, tipo obligatorio y costo manual explícito', async () => {
+    const item = {
+      productId: 1,
+      quantity: 1,
+      unitPrice: 10,
+      costSource: 'MANUAL',
+      unitCost: 0,
+    };
+    for (const body of [
+      { items: [item] },
+      { saleType: 'MINORISTA', items: [] },
+      { saleType: 'OTRO', items: [item] },
+      { saleType: 'MINORISTA', items: [{ ...item, quantity: 0 }] },
+      { saleType: 'MINORISTA', items: [{ ...item, unitCost: null }] },
+      { saleType: 'MINORISTA', items: [{ ...item, unitPrice: 1.001 }] },
+      {
+        saleType: 'MINORISTA',
+        items: [{ ...item, costSource: 'ESTIMACION', costEstimateId: 1 }],
+      },
+      { saleType: 'MINORISTA', items: [item], totalAmount: 0 },
+    ]) {
+      await request(app.getHttpServer())
+        .post('/api/sales')
+        .set('Authorization', 'Bearer admin')
+        .send(body)
+        .expect(400);
+    }
+    expect(sales.create).not.toHaveBeenCalled();
+    await request(app.getHttpServer())
+      .get('/api/sales?from=2026-02-30')
+      .set('Authorization', 'Bearer admin')
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/api/sales/0')
+      .set('Authorization', 'Bearer admin')
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/sales/1/cancel')
+      .set('Authorization', 'Bearer admin')
+      .send({ reason: ' ' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/sales/1/returns')
+      .set('Authorization', 'Bearer admin')
+      .send({ reason: 'Devuelto', items: [{ saleItemId: 1, quantity: -1 }] })
+      .expect(400);
+  });
+
+  it('conecta las cinco operaciones de ventas y utiliza el usuario autenticado', async () => {
+    const actorId = '11111111-1111-4111-8111-111111111111';
+    const item = {
+      productId: 1,
+      quantity: 1,
+      unitPrice: 10,
+      costSource: 'MANUAL',
+      unitCost: 0,
+    };
+    sales.create.mockResolvedValueOnce({ id: 1, status: 'CONFIRMADA' });
+    await request(app.getHttpServer())
+      .post('/api/sales')
+      .set('Authorization', 'Bearer operador')
+      .send({ saleType: 'MINORISTA', items: [item] })
+      .expect(201)
+      .expect({ id: 1, status: 'CONFIRMADA' });
+    expect(sales.create).toHaveBeenCalledWith(
+      expect.objectContaining({ saleType: 'MINORISTA', items: [item] }),
+      actorId,
+    );
+    sales.get.mockResolvedValueOnce({ id: 1 });
+    await request(app.getHttpServer())
+      .get('/api/sales/1')
+      .set('Authorization', 'Bearer operador')
+      .expect(200)
+      .expect({ id: 1 });
+    expect(sales.get).toHaveBeenCalledWith(1);
+    sales.list.mockResolvedValueOnce([]);
+    await request(app.getHttpServer())
+      .get('/api/sales?saleType=MAYORISTA&status=ANULADA')
+      .set('Authorization', 'Bearer operador')
+      .expect(200)
+      .expect([]);
+    expect(sales.list).toHaveBeenCalledWith(
+      expect.objectContaining({ saleType: 'MAYORISTA', status: 'ANULADA' }),
+    );
+    sales.cancel.mockResolvedValueOnce({ id: 1, status: 'ANULADA' });
+    await request(app.getHttpServer())
+      .post('/api/sales/1/cancel')
+      .set('Authorization', 'Bearer admin')
+      .send({ reason: ' Error ' })
+      .expect(200);
+    expect(sales.cancel).toHaveBeenCalledWith(1, 'Error', actorId);
+    const returned = {
+      reason: 'Devuelto',
+      items: [{ saleItemId: 1, quantity: 1 }],
+    };
+    sales.createReturn.mockResolvedValueOnce({ id: 1, status: 'DEVUELTA' });
+    await request(app.getHttpServer())
+      .post('/api/sales/1/returns')
+      .set('Authorization', 'Bearer admin')
+      .send(returned)
+      .expect(201);
+    expect(sales.createReturn).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining(returned),
+      actorId,
+    );
   });
 
   afterAll(async () => {

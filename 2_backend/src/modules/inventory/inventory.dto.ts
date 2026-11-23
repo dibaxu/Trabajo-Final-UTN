@@ -17,6 +17,9 @@ export const movementTypes = [
   'PRODUCCION',
   'AJUSTE_POSITIVO',
   'AJUSTE_NEGATIVO',
+  'VENTA',
+  'ANULACION',
+  'DEVOLUCION',
 ] as const;
 export type MovementType = (typeof movementTypes)[number];
 const idSchema = {
@@ -195,6 +198,15 @@ export class StockDto {
 }
 
 export class StockMovementDto {
+  @ApiProperty({ type: 'integer', nullable: true, example: null })
+  saleId: number | null;
+
+  @ApiProperty({ type: 'integer', nullable: true, example: null })
+  saleItemId: number | null;
+
+  @ApiProperty({ type: 'integer', nullable: true, example: null })
+  returnId: number | null;
+
   @ApiProperty(idSchema)
   id: number;
 

@@ -2529,7 +2529,10 @@
               "enum": [
                 "PRODUCCION",
                 "AJUSTE_POSITIVO",
-                "AJUSTE_NEGATIVO"
+                "AJUSTE_NEGATIVO",
+                "VENTA",
+                "ANULACION",
+                "DEVOLUCION"
               ]
             }
           },
@@ -2968,6 +2971,780 @@
         ]
       }
     },
+    "/api/sales": {
+      "get": {
+        "description": "Incluye detalles y devoluciones, ordenados por fecha e identificador descendentes. from y to incluyen ambos días en America/Argentina/Buenos_Aires. Los totales conservan los importes originales de la venta.",
+        "operationId": "salesList",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "example": "2026-11-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "example": "2026-11-30",
+              "type": "string"
+            }
+          },
+          {
+            "name": "saleType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "MAYORISTA",
+                "MINORISTA"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CONFIRMADA",
+                "ANULADA",
+                "PARCIALMENTE_DEVUELTA",
+                "DEVUELTA"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista completa de ventas que cumplen los filtros.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SaleDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Lista ventas por período, estado y tipo",
+        "tags": [
+          "Sales"
+        ]
+      },
+      "post": {
+        "description": "Requiere saleType MAYORISTA o MINORISTA y al menos un detalle con costo MANUAL explícito. Acumula productos repetidos con el mismo precio y costo. Calcula importes en el servidor y guarda venta, detalles y salidas en una transacción. Cada POST confirmado crea una venta nueva.",
+        "operationId": "salesCreate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSaleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Venta confirmada con existencias descontadas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Un producto no existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Existencias insuficientes para completar la venta.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Confirma una venta y descuenta existencias",
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/api/sales/{id}": {
+      "get": {
+        "description": "Incluye el costo aplicado por detalle, devoluciones y datos de anulación.",
+        "operationId": "salesGet",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "example": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Venta encontrada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La venta no existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Consulta el detalle histórico de una venta",
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/api/sales/{id}/cancel": {
+      "post": {
+        "description": "Requiere administrador y motivo. Restituye las unidades conservando los detalles y totales originales. Una venta con devoluciones o previamente anulada devuelve 409.",
+        "operationId": "salesCancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "example": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaleReasonDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Venta anulada y existencias restituidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La venta no existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatible con la anulación o stock fuera de rango.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Anula una venta confirmada",
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/api/sales/{id}/returns": {
+      "post": {
+        "description": "Requiere administrador, motivo y detalles de la venta original. Restituye las unidades y actualiza el estado en una transacción. Las cantidades repetidas del mismo detalle se acumulan.",
+        "operationId": "salesCreateReturn",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "example": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReturnDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Venta actualizada con su devolución y existencias restituidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo o parámetro inválido; también se rechazan propiedades desconocidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 400,
+                  "message": [
+                    "email must be an email"
+                  ],
+                  "error": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales, enlace o token inválidos, vencidos o revocados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 401,
+                  "message": "Se requiere una sesión válida.",
+                  "error": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil o rol sin acceso activo, permiso insuficiente o acción no permitida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 403,
+                  "message": "No tenés acceso activo a esta aplicación.",
+                  "error": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "La venta no existe.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La cantidad supera lo pendiente, el estado impide devolver o el stock queda fuera de rango.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se alcanzó el límite de intentos de la API o del proveedor. Esperar antes de reintentar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 429,
+                  "message": "ThrottlerException: Too Many Requests"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno; la respuesta no incluye detalles de infraestructura.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 500,
+                  "message": "Internal server error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El servicio de autenticación o el envío de correo no están disponibles.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "statusCode": 503,
+                  "message": "El servicio de autenticación no está disponible.",
+                  "error": "Service Unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registra una devolución parcial o total",
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "description": "Endpoint público de disponibilidad. Ejecuta una consulta mínima a PostgreSQL; no requiere JWT y no usa el limitador de peticiones de acceso. El error 503 conserva el cuerpo de salud, distinto del formato general de errores.",
@@ -3020,6 +3797,10 @@
     {
       "name": "Products",
       "description": "Consulta y administración del catálogo de productos."
+    },
+    {
+      "name": "Sales",
+      "description": "Ventas mayoristas y minoristas, anulaciones y devoluciones."
     },
     {
       "name": "Inventory",
@@ -3666,6 +4447,21 @@
       "StockMovementDto": {
         "type": "object",
         "properties": {
+          "saleId": {
+            "type": "integer",
+            "nullable": true,
+            "example": null
+          },
+          "saleItemId": {
+            "type": "integer",
+            "nullable": true,
+            "example": null
+          },
+          "returnId": {
+            "type": "integer",
+            "nullable": true,
+            "example": null
+          },
           "id": {
             "type": "integer",
             "minimum": 1,
@@ -3687,7 +4483,10 @@
             "enum": [
               "PRODUCCION",
               "AJUSTE_POSITIVO",
-              "AJUSTE_NEGATIVO"
+              "AJUSTE_NEGATIVO",
+              "VENTA",
+              "ANULACION",
+              "DEVOLUCION"
             ]
           },
           "quantityDelta": {
@@ -3716,6 +4515,9 @@
           }
         },
         "required": [
+          "saleId",
+          "saleItemId",
+          "returnId",
           "id",
           "productId",
           "productName",
@@ -3814,6 +4616,419 @@
           "direction",
           "quantity",
           "reason"
+        ]
+      },
+      "SaleItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "example": 2
+          },
+          "unitPrice": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01,
+            "example": 1500
+          },
+          "costSource": {
+            "type": "string",
+            "enum": [
+              "MANUAL"
+            ],
+            "description": "El costo se indica explícitamente por detalle. Las estimaciones se incorporarán con Costos."
+          },
+          "unitCost": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01,
+            "example": 1500
+          },
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "productName": {
+            "type": "string",
+            "example": "Maceta geométrica"
+          },
+          "costEstimateId": {
+            "type": "integer",
+            "nullable": true,
+            "example": null,
+            "description": "Se incorporará al implementar Costos."
+          },
+          "lineTotal": {
+            "type": "number",
+            "example": 3000
+          },
+          "lineCost": {
+            "type": "number",
+            "example": 2000
+          },
+          "lineMargin": {
+            "type": "number",
+            "example": 1000
+          },
+          "returnedQuantity": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 0
+          }
+        },
+        "required": [
+          "productId",
+          "quantity",
+          "unitPrice",
+          "costSource",
+          "unitCost",
+          "id",
+          "productName",
+          "costEstimateId",
+          "lineTotal",
+          "lineCost",
+          "lineMargin",
+          "returnedQuantity"
+        ]
+      },
+      "SaleReturnItemDto": {
+        "type": "object",
+        "properties": {
+          "saleItemId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "example": 2
+          },
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          }
+        },
+        "required": [
+          "saleItemId",
+          "quantity",
+          "id"
+        ]
+      },
+      "SaleReturnDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "saleId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "returnedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-22T15:00:00.000Z"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Producto devuelto."
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdByName": {
+            "type": "string",
+            "example": "Pedro"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleReturnItemDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "saleId",
+          "returnedAt",
+          "reason",
+          "createdBy",
+          "createdByName",
+          "items"
+        ]
+      },
+      "SaleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "CONFIRMADA",
+              "ANULADA",
+              "PARCIALMENTE_DEVUELTA",
+              "DEVUELTA"
+            ]
+          },
+          "saleType": {
+            "type": "string",
+            "enum": [
+              "MAYORISTA",
+              "MINORISTA"
+            ]
+          },
+          "soldAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totalAmount": {
+            "type": "number",
+            "example": 3000
+          },
+          "totalCost": {
+            "type": "number",
+            "example": 2000
+          },
+          "grossMargin": {
+            "type": "number",
+            "example": 1000
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "example": "Venta en feria."
+          },
+          "createdBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdByName": {
+            "type": "string",
+            "example": "Pedro"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cancellationReason": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "cancelledBy": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "cancelledByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancelledAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleItemDto"
+            }
+          },
+          "returns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SaleReturnDto"
+            }
+          },
+          "itemCount": {
+            "type": "integer",
+            "example": 1
+          },
+          "units": {
+            "type": "integer",
+            "example": 2
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "saleType",
+          "soldAt",
+          "totalAmount",
+          "totalCost",
+          "grossMargin",
+          "notes",
+          "createdBy",
+          "createdByName",
+          "createdAt",
+          "cancellationReason",
+          "cancelledBy",
+          "cancelledByName",
+          "cancelledAt",
+          "items",
+          "returns",
+          "itemCount",
+          "units"
+        ]
+      },
+      "CreateSaleItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "example": 2
+          },
+          "unitPrice": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01,
+            "example": 1500
+          },
+          "costSource": {
+            "type": "string",
+            "enum": [
+              "MANUAL"
+            ],
+            "description": "El costo se indica explícitamente por detalle. Las estimaciones se incorporarán con Costos."
+          },
+          "unitCost": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99,
+            "multipleOf": 0.01,
+            "example": 1500
+          }
+        },
+        "required": [
+          "productId",
+          "quantity",
+          "unitPrice",
+          "costSource",
+          "unitCost"
+        ]
+      },
+      "CreateSaleDto": {
+        "type": "object",
+        "properties": {
+          "saleType": {
+            "type": "string",
+            "enum": [
+              "MAYORISTA",
+              "MINORISTA"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300,
+            "example": "Venta en feria."
+          },
+          "items": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateSaleItemDto"
+            }
+          }
+        },
+        "required": [
+          "saleType",
+          "items"
+        ]
+      },
+      "SaleReasonDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Corrección de una operación."
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "ReturnItemDto": {
+        "type": "object",
+        "properties": {
+          "saleItemId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "example": 2
+          }
+        },
+        "required": [
+          "saleItemId",
+          "quantity"
+        ]
+      },
+      "CreateReturnDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Corrección de una operación."
+          },
+          "items": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReturnItemDto"
+            }
+          }
+        },
+        "required": [
+          "reason",
+          "items"
         ]
       },
       "HealthDto": {

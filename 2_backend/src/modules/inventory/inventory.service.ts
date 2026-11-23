@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../../infrastructure/database/database.service.js';
+import type { TransactionClient } from '../../infrastructure/database/database.service.js';
 import type {
   AdjustStockDto,
   MovementFiltersDto,
@@ -18,11 +19,25 @@ import type {
 } from './inventory.dto.js';
 
 type QueryClient = Pick<DatabaseService, 'query'>;
-type MovementRow = Omit<StockMovementDto, 'id' | 'productId' | 'occurredAt'> & {
+type MovementRow = Omit<
+  StockMovementDto,
+  'id' | 'productId' | 'occurredAt' | 'saleId' | 'saleItemId' | 'returnId'
+> & {
   id: string;
   productId: string;
   occurredAt: Date;
+  saleId: string | null;
+  saleItemId: string | null;
+  returnId: string | null;
 };
+export interface SaleStockQuantity {
+  productId: number;
+  quantity: number;
+}
+export interface SaleStockRestoration extends SaleStockQuantity {
+  saleItemId: number;
+  saleReturnItemId?: number;
+}
 type StockRow = Omit<StockDto, 'id' | 'categoryId' | 'stock'> & {
   id: string;
   categoryId: string;
@@ -31,9 +46,12 @@ type StockRow = Omit<StockDto, 'id' | 'categoryId' | 'stock'> & {
 
 const movementQuery = `SELECT m.id, m.product_id AS "productId", p.name AS "productName",
   m.movement_type AS type, m.quantity_delta AS "quantityDelta", m.reason,
-  m.occurred_at AS "occurredAt", m.created_by AS "createdBy", actor.display_name AS "createdByName"
+  m.occurred_at AS "occurredAt", m.created_by AS "createdBy", actor.display_name AS "createdByName",
+  si.sale_id AS "saleId", m.sale_item_id AS "saleItemId", ri.sale_return_id AS "returnId"
   FROM public.stock_movements m JOIN public.products p ON p.id = m.product_id
-  JOIN public.profiles actor ON actor.id = m.created_by`;
+  JOIN public.profiles actor ON actor.id = m.created_by
+  LEFT JOIN public.sale_items si ON si.id = m.sale_item_id
+  LEFT JOIN public.sale_return_items ri ON ri.id = m.sale_return_item_id`;
 
 function safeNumber(value: string): number {
   const number = Number(value);
@@ -48,6 +66,9 @@ function movementView(row: MovementRow): StockMovementDto {
     ...row,
     id: safeNumber(row.id),
     productId: safeNumber(row.productId),
+    saleId: row.saleId === null ? null : safeNumber(row.saleId),
+    saleItemId: row.saleItemId === null ? null : safeNumber(row.saleItemId),
+    returnId: row.returnId === null ? null : safeNumber(row.returnId),
     occurredAt: row.occurredAt.toISOString(),
   };
 }
@@ -55,6 +76,88 @@ function movementView(row: MovementRow): StockMovementDto {
 @Injectable()
 export class InventoryService {
   constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
+
+  /** Bloquea y valida el stock antes de crear los detalles y sus referencias FK. */
+  async fulfillSale(
+    client: TransactionClient,
+    quantities: readonly SaleStockQuantity[],
+    actorId: string,
+    saveItems: () => Promise<ReadonlyMap<number, number>>,
+  ): Promise<void> {
+    const ids = quantities.map(({ productId }) => productId);
+    await this.lockSaleProducts(client, ids, true);
+    const balances = await this.getBalances(ids, client);
+    for (const item of quantities) {
+      if (item.quantity > balances.get(item.productId)!) {
+        throw new ConflictException(
+          `Stock insuficiente del producto ${item.productId}.`,
+        );
+      }
+    }
+    const references = await saveItems();
+    for (const item of quantities) {
+      const saleItemId = references.get(item.productId);
+      if (saleItemId === undefined)
+        throw new Error('Falta el detalle de venta para registrar su salida.');
+      await client.query(
+        `INSERT INTO public.stock_movements (product_id, sale_item_id, movement_type, quantity_delta, created_by)
+         VALUES ($1, $2, 'VENTA', $3, $4)`,
+        [item.productId, saleItemId, -item.quantity, actorId],
+      );
+    }
+  }
+
+  /** Restituye unidades históricas incluso si el producto fue desactivado. */
+  async restoreSale(
+    client: TransactionClient,
+    items: readonly SaleStockRestoration[],
+    type: 'ANULACION' | 'DEVOLUCION',
+    reason: string,
+    actorId: string,
+  ): Promise<void> {
+    const ids = items.map(({ productId }) => productId);
+    await this.lockSaleProducts(client, ids, false);
+    const balances = await this.getBalances(ids, client);
+    for (const item of items) {
+      const after = balances.get(item.productId)! + item.quantity;
+      if (!Number.isSafeInteger(after))
+        throw new ConflictException(
+          'El stock resultante supera el rango permitido.',
+        );
+      balances.set(item.productId, after);
+      await client.query(
+        `INSERT INTO public.stock_movements
+           (product_id, sale_item_id, sale_return_item_id, movement_type, quantity_delta, reason, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          item.productId,
+          item.saleItemId,
+          item.saleReturnItemId,
+          type,
+          item.quantity,
+          reason,
+          actorId,
+        ],
+      );
+    }
+  }
+
+  private async lockSaleProducts(
+    client: TransactionClient,
+    productIds: readonly number[],
+    requireActive: boolean,
+  ): Promise<void> {
+    // Un orden común evita interbloqueos entre ventas con varios productos.
+    const { rows } = await client.query<{ id: string; is_active: boolean }>(
+      'SELECT id, is_active FROM public.products WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE',
+      [productIds],
+    );
+    if (rows.length !== new Set(productIds).size)
+      throw new NotFoundException('Producto no encontrado.');
+    if (requireActive && rows.some((row) => !row.is_active)) {
+      throw new BadRequestException('La venta contiene un producto inactivo.');
+    }
+  }
 
   /** Comparte existencias con otros módulos sin exponer el registro de movimientos. */
   async getBalances(

@@ -106,11 +106,47 @@ Producción y consulta de existencias requieren un perfil activo. Los ajustes y 
 
 Las escrituras responden `201` con `{ movement, stockBefore, stockAfter }`. El servidor asigna fecha y usuario. Cada POST confirmado registra una operación nueva. Un producto inexistente devuelve `404`; un producto inactivo o datos inválidos devuelven `400`; un ajuste con stock insuficiente devuelve `409`.
 
-Los filtros de fecha incluyen ambos días completos en `America/Argentina/Buenos_Aires`. El historial incluye productos inactivos y admite `PRODUCCION`, `AJUSTE_POSITIVO` y `AJUSTE_NEGATIVO`, ordenados por fecha e identificador descendentes. Las consultas devuelven listas completas.
+Los filtros de fecha incluyen ambos días completos en `America/Argentina/Buenos_Aires`. El historial incluye productos inactivos y admite `PRODUCCION`, `AJUSTE_POSITIVO`, `AJUSTE_NEGATIVO`, `VENTA`, `ANULACION` y `DEVOLUCION`, ordenados por fecha e identificador descendentes. Los movimientos comerciales incluyen `saleId`, `saleItemId` y, cuando corresponde, `returnId`. Las consultas devuelven listas completas.
 
 `InventoryService` concentra las consultas de movimientos, el cálculo de saldos y las transacciones. Bloquea la fila del producto antes de calcular el saldo y registrar una entrada o salida, coordinando las escrituras simultáneas y los cambios de estado del producto. Las correcciones se registran como movimientos nuevos. La interfaz compartida `getBalances(productIds, client?)` entrega existencias por lote y permite usar una transacción existente. Productos consume esa interfaz para incluir stock.
 
-La [migración de Inventario](supabase/migrations/20261121200218_inventario_movimientos.sql) crea el historial con sus claves foráneas, restricciones de signo y motivo, índices y RLS. Conserva bloqueado el acceso de `anon` y `authenticated`. Las relaciones con detalles de ventas y devoluciones se incorporarán junto con esos módulos.
+La [migración de Inventario](supabase/migrations/20261121200218_inventario_movimientos.sql) crea el historial con sus claves foráneas, restricciones de signo y motivo, índices y RLS. Conserva bloqueado el acceso de `anon` y `authenticated`. La migración de Ventas incorpora las relaciones con los detalles de ventas y devoluciones.
+
+## Ventas
+
+| Operación | Ruta |
+| --- | --- |
+| Consultar ventas | `GET /api/sales?from=2026-11-01&to=2026-11-30&status=CONFIRMADA&saleType=MINORISTA` |
+| Consultar una venta | `GET /api/sales/:id` |
+| Confirmar una venta | `POST /api/sales` |
+| Anular una venta | `POST /api/sales/:id/cancel` |
+| Registrar una devolución | `POST /api/sales/:id/returns` |
+
+Para confirmar una venta, enviá el tipo obligatorio `MAYORISTA` o `MINORISTA` y al menos un detalle.
+
+```json
+{
+  "saleType": "MINORISTA",
+  "notes": "Venta en feria",
+  "items": [
+    { "productId": 1, "quantity": 2, "unitPrice": 1500, "costSource": "MANUAL", "unitCost": 650 }
+  ]
+}
+```
+
+El costo manual es explícito por detalle y queda guardado como dato histórico. El módulo de Costos incorporará la selección de estimaciones; `costEstimateId` devuelve `null` en esta entrega. Los precios y costos unitarios admiten hasta dos decimales y se calculan en centavos enteros antes de guardarse como `numeric`. El servidor calcula subtotales, costos y margen. Los detalles repetidos de un producto se acumulan cuando coinciden el precio y el costo; diferencias devuelven `400`.
+
+La confirmación responde `201` y guarda cabecera, detalles y movimientos en una transacción. Inventario bloquea todos los productos en orden de identificador antes de crear los detalles, verifica que estén activos y comprueba el saldo. Un producto inexistente devuelve `404`, uno inactivo devuelve `400` y existencias insuficientes devuelven `409`. Cada POST confirmado crea una operación nueva.
+
+Anular exige `ADMINISTRADOR` y `{ "reason": "Error de carga" }`. Responde `200`, restituye las unidades y registra usuario, fecha y motivo. Solo se permite sobre una venta `CONFIRMADA` sin devoluciones; una segunda anulación devuelve `409`.
+
+Devolver exige `ADMINISTRADOR` y `{ "reason": "Producto devuelto", "items": [{ "saleItemId": 1, "quantity": 1 }] }`. Responde `201` con la venta actualizada. Las cantidades deben pertenecer a la venta y respetar las unidades pendientes. El estado pasa a `PARCIALMENTE_DEVUELTA` o `DEVUELTA`; una venta `ANULADA` impide devoluciones. Las restituciones incluyen productos que fueron desactivados después de venderlos.
+
+Las consultas incluyen detalles, devoluciones, unidades devueltas por detalle y responsables. Los filtros de fecha incluyen ambos días en `America/Argentina/Buenos_Aires`. Los totales de la venta conservan sus valores originales después de anulaciones o devoluciones; el estado y las cantidades devueltas permiten calcular los resultados netos.
+
+`SalesService` concentra el ciclo de vida, los cálculos y las reglas de las ventas. Inventario conserva la responsabilidad sobre las existencias mediante `fulfillSale` y `restoreSale`, usando el cliente de la misma transacción. Las consultas de ventas leen una instantánea consistente para que estado, detalles y devoluciones correspondan al mismo momento.
+
+La [migración de Ventas](supabase/migrations/20261122133649_ventas_anulaciones_devoluciones.sql) agrega ventas, detalles y devoluciones, amplía los movimientos comerciales y protege las tablas con RLS y permisos exclusivos del backend.
 
 ## Estructura y convenciones
 
@@ -143,7 +179,7 @@ npm run test:e2e
 
 Para ejecutar lo compilado: `npm run start:prod` después de `npm run build`.
 
-Para incluir las pruebas de acceso, catálogo e inventario con PostgreSQL real, configurá `AUTH_TEST_DATABASE_URL` con una base local vacía llamada `auth_test` antes de ejecutar `npm run test:e2e`. La suite crea y elimina sus esquemas de prueba.
+Para incluir las pruebas de acceso, catálogo, inventario y ventas con PostgreSQL real, configurá `AUTH_TEST_DATABASE_URL` con una base local vacía llamada `auth_test` antes de ejecutar `npm run test:e2e`. La suite crea y elimina sus esquemas de prueba.
 
 ## Migraciones
 

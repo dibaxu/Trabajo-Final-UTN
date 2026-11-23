@@ -10,6 +10,7 @@ import { DatabaseService } from '../dist/infrastructure/database/database.servic
 import { AuthRepository } from '../dist/modules/auth/auth.repository.js';
 import { ProductsService } from '../dist/modules/products/products.service.js';
 import { InventoryService } from '../dist/modules/inventory/inventory.service.js';
+import { SalesService } from '../dist/modules/sales/sales.service.js';
 
 const databaseUrl = process.env.AUTH_TEST_DATABASE_URL;
 const a = '11111111-1111-4111-8111-111111111111';
@@ -18,12 +19,13 @@ const pending = '33333333-3333-4333-8333-333333333333';
 const sid = '44444444-4444-4444-8444-444444444444';
 
 describe.skipIf(!databaseUrl)(
-  'Acceso, catálogo e inventario en PostgreSQL real aislado',
+  'Acceso, catálogo, inventario y ventas en PostgreSQL real aislado',
   () => {
     let pool: Pool;
     let repository: AuthRepository;
     let products: ProductsService;
     let inventory: InventoryService;
+    let sales: SalesService;
     let ownsSchema = false;
 
     beforeAll(async () => {
@@ -64,6 +66,7 @@ describe.skipIf(!databaseUrl)(
         '20261017211747_acceso_por_invitacion.sql',
         '20261117000442_catalogo_productos.sql',
         '20261121200218_inventario_movimientos.sql',
+        '20261122133649_ventas_anulaciones_devoluciones.sql',
       ]) {
         await pool.query(
           await readFile(
@@ -76,11 +79,12 @@ describe.skipIf(!databaseUrl)(
       repository = new AuthRepository(database);
       inventory = new InventoryService(database);
       products = new ProductsService(database, inventory);
+      sales = new SalesService(database, inventory);
     });
 
     beforeEach(async () => {
       await pool.query(
-        'TRUNCATE public.stock_movements, public.products, public.product_categories, public.profiles, auth.sessions, auth.users CASCADE',
+        'TRUNCATE public.sales, public.stock_movements, public.products, public.product_categories, public.profiles, auth.sessions, auth.users CASCADE',
       );
       await pool.query(
         `INSERT INTO auth.users VALUES ($1, 'a@example.com', now()), ($2, 'b@example.com', now()), ($3, 'pending@example.com', NULL)`,
@@ -494,6 +498,359 @@ describe.skipIf(!databaseUrl)(
         ).rejects.toMatchObject({ code: '23514' });
       }
       expect(await inventory.listMovements({})).toEqual([]);
+    });
+
+    async function stockedProduct(name = 'Maceta', stock = 10) {
+      const category =
+        (await products.listCategories())[0] ??
+        (await products.createCategory({ name: 'Macetas' }));
+      const product = await products.createProduct(
+        { name, categoryId: category.id, manualCost: 500 },
+        a,
+      );
+      await inventory.registerProduction(
+        { productId: product.id, quantity: stock },
+        a,
+      );
+      return product;
+    }
+
+    function saleItem(productId: number, quantity = 1) {
+      return {
+        productId,
+        quantity,
+        unitPrice: 0.3,
+        unitCost: 0.1,
+        costSource: 'MANUAL' as const,
+      };
+    }
+
+    it('confirma ventas con centavos exactos, acumula duplicados y conserva el costo histórico', async () => {
+      const product = await stockedProduct();
+      const sale = await sales.create(
+        {
+          saleType: 'MINORISTA',
+          items: [saleItem(product.id, 2), saleItem(product.id)],
+        },
+        a,
+      );
+      expect(sale).toMatchObject({
+        status: 'CONFIRMADA',
+        saleType: 'MINORISTA',
+        totalAmount: 0.9,
+        totalCost: 0.3,
+        grossMargin: 0.6,
+        units: 3,
+        itemCount: 1,
+        items: [
+          expect.objectContaining({
+            quantity: 3,
+            costSource: 'MANUAL',
+            unitCost: 0.1,
+            costEstimateId: null,
+          }),
+        ],
+      });
+      expect((await products.getProduct(product.id)).stock).toBe(7);
+      expect(await inventory.listMovements({ type: 'VENTA' })).toEqual([
+        expect.objectContaining({
+          saleId: sale.id,
+          saleItemId: sale.items[0].id,
+          returnId: null,
+          quantityDelta: -3,
+        }),
+      ]);
+      await products.updateProduct(product.id, { manualCost: 999 });
+      expect((await sales.get(sale.id)).items[0].unitCost).toBe(0.1);
+      expect(await sales.list({ saleType: 'MAYORISTA' })).toEqual([]);
+      expect(
+        await sales.list({ saleType: 'MINORISTA', status: 'CONFIRMADA' }),
+      ).toHaveLength(1);
+    });
+
+    it('rechaza diferencias de precio o costo en duplicados, costos ausentes y totales fuera de rango', async () => {
+      const product = await stockedProduct();
+      for (const items of [
+        [saleItem(product.id), { ...saleItem(product.id), unitCost: 0.2 }],
+        [saleItem(product.id), { ...saleItem(product.id), unitPrice: 0.4 }],
+        [
+          {
+            ...saleItem(product.id),
+            quantity: 2_147_483_647,
+            unitPrice: 9_999_999_999.99,
+          },
+        ],
+      ]) {
+        await expect(
+          sales.create({ saleType: 'MINORISTA', items }, a),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      }
+      expect(await sales.list({})).toEqual([]);
+      expect((await products.getProduct(product.id)).stock).toBe(10);
+    });
+
+    it('revierte toda la venta si falta stock de un producto y detecta productos inactivos o inexistentes', async () => {
+      const first = await stockedProduct('Primero', 5);
+      const second = await stockedProduct('Segundo', 1);
+      await expect(
+        sales.create(
+          {
+            saleType: 'MAYORISTA',
+            items: [saleItem(first.id), saleItem(second.id, 2)],
+          },
+          a,
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(await sales.list({})).toEqual([]);
+      expect((await products.getProduct(first.id)).stock).toBe(5);
+      expect(await inventory.listMovements({ type: 'VENTA' })).toEqual([]);
+      await products.setProductStatus(second.id, false);
+      await expect(
+        sales.create(
+          { saleType: 'MINORISTA', items: [saleItem(second.id)] },
+          a,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        sales.create(
+          { saleType: 'MINORISTA', items: [saleItem(Number.MAX_SAFE_INTEGER)] },
+          a,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('revierte cabecera, detalles y movimientos ante un fallo posterior a la escritura', async () => {
+      const product = await stockedProduct();
+      // El trigger de prueba provoca un fallo cuando los detalles ya se insertaron.
+      await pool.query(`CREATE FUNCTION public.fail_sale_movement() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN IF NEW.movement_type = 'VENTA' THEN RAISE EXCEPTION 'Fallo de prueba'; END IF; RETURN NEW; END $$;
+        CREATE TRIGGER fail_sale_movement BEFORE INSERT ON public.stock_movements
+        FOR EACH ROW EXECUTE FUNCTION public.fail_sale_movement();`);
+      try {
+        await expect(
+          sales.create(
+            { saleType: 'MINORISTA', items: [saleItem(product.id)] },
+            a,
+          ),
+        ).rejects.toMatchObject({ code: 'P0001' });
+        expect(await sales.list({})).toEqual([]);
+        expect((await products.getProduct(product.id)).stock).toBe(10);
+        expect(
+          (await pool.query('SELECT * FROM public.sale_items')).rows,
+        ).toEqual([]);
+      } finally {
+        await pool.query(
+          'DROP TRIGGER fail_sale_movement ON public.stock_movements; DROP FUNCTION public.fail_sale_movement()',
+        );
+      }
+    });
+
+    it('impide que ventas simultáneas consuman las mismas últimas unidades', async () => {
+      const product = await stockedProduct('Última unidad', 1);
+      const input = {
+        saleType: 'MINORISTA' as const,
+        items: [saleItem(product.id)],
+      };
+      const outcomes = await Promise.allSettled([
+        sales.create(input, a),
+        sales.create(input, b),
+      ]);
+      expect(
+        outcomes.filter(({ status }) => status === 'fulfilled'),
+      ).toHaveLength(1);
+      expect(outcomes).toContainEqual(
+        expect.objectContaining({
+          status: 'rejected',
+          reason: expect.any(ConflictException),
+        }),
+      );
+      expect((await products.getProduct(product.id)).stock).toBe(0);
+      expect(await sales.list({})).toHaveLength(1);
+    });
+
+    it('ordena los bloqueos en ventas simultáneas que seleccionan productos en orden inverso', async () => {
+      const first = await stockedProduct('Primero', 2);
+      const second = await stockedProduct('Segundo', 2);
+      await Promise.all([
+        sales.create(
+          {
+            saleType: 'MAYORISTA',
+            items: [saleItem(first.id), saleItem(second.id)],
+          },
+          a,
+        ),
+        sales.create(
+          {
+            saleType: 'MINORISTA',
+            items: [saleItem(second.id), saleItem(first.id)],
+          },
+          b,
+        ),
+      ]);
+      expect((await products.getProduct(first.id)).stock).toBe(0);
+      expect((await products.getProduct(second.id)).stock).toBe(0);
+    });
+
+    it('anula una sola vez y restituye productos desactivados conservando los importes', async () => {
+      const product = await stockedProduct();
+      const sale = await sales.create(
+        { saleType: 'MAYORISTA', items: [saleItem(product.id, 3)] },
+        a,
+      );
+      await products.setProductStatus(product.id, false);
+      const cancelled = await sales.cancel(sale.id, 'Error de carga', b);
+      expect(cancelled).toMatchObject({
+        status: 'ANULADA',
+        cancelledBy: b,
+        cancellationReason: 'Error de carga',
+        totalAmount: 0.9,
+      });
+      expect((await products.getProduct(product.id)).stock).toBe(10);
+      await expect(
+        sales.cancel(sale.id, 'Reintento', b),
+      ).rejects.toBeInstanceOf(ConflictException);
+      await expect(
+        sales.createReturn(
+          sale.id,
+          {
+            reason: 'Devolución',
+            items: [{ saleItemId: sale.items[0].id, quantity: 1 }],
+          },
+          b,
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(await inventory.listMovements({ type: 'ANULACION' })).toHaveLength(
+        1,
+      );
+    });
+
+    it('registra devoluciones parciales y totales, sin superar la venta ni permitir anularla', async () => {
+      const product = await stockedProduct();
+      const sale = await sales.create(
+        { saleType: 'MINORISTA', items: [saleItem(product.id, 3)] },
+        a,
+      );
+      const itemId = sale.items[0].id;
+      const partial = await sales.createReturn(
+        sale.id,
+        {
+          reason: 'Devolución parcial',
+          items: [{ saleItemId: itemId, quantity: 1 }],
+        },
+        b,
+      );
+      expect(partial).toMatchObject({
+        status: 'PARCIALMENTE_DEVUELTA',
+        totalAmount: 0.9,
+        items: [expect.objectContaining({ returnedQuantity: 1 })],
+      });
+      await expect(sales.cancel(sale.id, 'Error', b)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      await expect(
+        sales.createReturn(
+          sale.id,
+          { reason: 'Exceso', items: [{ saleItemId: itemId, quantity: 3 }] },
+          b,
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+      await expect(
+        sales.createReturn(
+          sale.id,
+          {
+            reason: 'Ajeno',
+            items: [{ saleItemId: Number.MAX_SAFE_INTEGER, quantity: 1 }],
+          },
+          b,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      const complete = await sales.createReturn(
+        sale.id,
+        {
+          reason: 'Resto',
+          items: [
+            { saleItemId: itemId, quantity: 1 },
+            { saleItemId: itemId, quantity: 1 },
+          ],
+        },
+        b,
+      );
+      expect(complete.status).toBe('DEVUELTA');
+      expect(complete.items[0].returnedQuantity).toBe(3);
+      expect(complete.returns).toHaveLength(2);
+      expect((await products.getProduct(product.id)).stock).toBe(10);
+      expect(await inventory.listMovements({ type: 'DEVOLUCION' })).toEqual([
+        expect.objectContaining({
+          returnId: complete.returns[1].id,
+          saleId: sale.id,
+        }),
+        expect.objectContaining({
+          returnId: complete.returns[0].id,
+          saleId: sale.id,
+        }),
+      ]);
+    });
+
+    it('serializa devoluciones y anulaciones simultáneas sin duplicar restituciones', async () => {
+      const product = await stockedProduct('Última unidad', 1);
+      const sale = await sales.create(
+        { saleType: 'MINORISTA', items: [saleItem(product.id)] },
+        a,
+      );
+      const outcomes = await Promise.allSettled([
+        sales.cancel(sale.id, 'Error', a),
+        sales.createReturn(
+          sale.id,
+          {
+            reason: 'Devuelto',
+            items: [{ saleItemId: sale.items[0].id, quantity: 1 }],
+          },
+          b,
+        ),
+      ]);
+      expect(
+        outcomes.filter(({ status }) => status === 'fulfilled'),
+      ).toHaveLength(1);
+      expect((await products.getProduct(product.id)).stock).toBe(1);
+    });
+
+    it('filtra ventas por días completos y conserva permisos RLS en las tablas nuevas', async () => {
+      const product = await stockedProduct();
+      const first = await sales.create(
+        { saleType: 'MINORISTA', items: [saleItem(product.id)] },
+        a,
+      );
+      const second = await sales.create(
+        { saleType: 'MAYORISTA', items: [saleItem(product.id)] },
+        b,
+      );
+      await pool.query(
+        "UPDATE public.sales SET sold_at = '2026-11-22T02:59:59.999Z' WHERE id = $1",
+        [first.id],
+      );
+      await pool.query(
+        "UPDATE public.sales SET sold_at = '2026-11-22T03:00:00Z' WHERE id = $1",
+        [second.id],
+      );
+      expect(
+        (await sales.list({ from: '2026-11-22', to: '2026-11-22' })).map(
+          ({ id }) => id,
+        ),
+      ).toEqual([second.id]);
+      for (const table of [
+        'sales',
+        'sale_items',
+        'sale_returns',
+        'sale_return_items',
+      ]) {
+        const {
+          rows: [row],
+        } = await pool.query(
+          "SELECT relrowsecurity, has_table_privilege('authenticated', oid, 'SELECT,INSERT,UPDATE,DELETE') AS allowed FROM pg_class WHERE oid = $1::regclass",
+          [`public.${table}`],
+        );
+        expect(row).toMatchObject({ relrowsecurity: true, allowed: false });
+      }
     });
 
     afterAll(async () => {
