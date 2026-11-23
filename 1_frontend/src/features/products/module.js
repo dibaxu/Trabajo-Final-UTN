@@ -9,4 +9,6 @@ export default {
     { path: '/productos/:id', Component: ProductFormPage },
   ],
   nav: { to: '/productos', label: 'Productos', order: 40 },
+  needs: ['products', 'categories'],
+  home: { order: 30, path: () => '/productos' },
 }

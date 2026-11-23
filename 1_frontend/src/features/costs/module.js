@@ -10,6 +10,7 @@ export default {
     { path: '/costos/parametros', Component: SettingsPage, permission: 'costSettings.manage' },
   ],
   nav: { to: '/costos', label: 'Costos', order: 50 },
+  needs: ['costSettings', 'estimates'],
   // Pantalla inicial de respaldo si ningún otro módulo la reclama.
   home: { order: 90, path: () => '/costos' },
 }
