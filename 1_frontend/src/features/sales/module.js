@@ -10,5 +10,6 @@ export default {
     { path: '/ventas/:id', Component: SaleDetailPage },
   ],
   nav: { to: '/ventas', label: 'Ventas', order: 20 },
+  needs: ['sales'],
   home: { order: 20, path: () => '/ventas/nueva' },
 }

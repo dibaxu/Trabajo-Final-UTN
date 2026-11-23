@@ -8,26 +8,38 @@
 //   routes: [{ path: '/ventas', Component: Page, permission?: 'sales.cancel' }],
 //   nav: { to: '/ventas', label: 'Ventas', order: 20, permission?: '…' },
 //   home: { order: 20, path: (user) => '/ventas/nueva' | null },
+//   needs: ['sales'],   // APIs (api.<nombre>) que el módulo usa; ver services/http/modules
 // }
 import { can } from './features/auth/permissions.js'
+import { IS_MOCK } from './services/mode.js'
+import { implementedApis } from './services/http/registry.js'
+import ComingSoon from './components/ComingSoon.jsx'
 
 const found = import.meta.glob('./features/*/module.js', { eager: true })
 
 export const modules = Object.values(found).map((m) => m.default)
 
-export const routes = modules.flatMap((m) => m.routes ?? [])
+/**
+ * En modo http un módulo está disponible solo si el backend implementa todas las APIs que usa
+ * (`needs`). Los que todavía no existen en el servidor se muestran como "pronto" en vez de fallar.
+ */
+export const isAvailable = (m) => IS_MOCK || (m.needs ?? []).every((n) => implementedApis.has(n))
+
+export const routes = modules.flatMap((m) =>
+  (m.routes ?? []).map((r) => (isAvailable(m) ? r : { ...r, Component: ComingSoon, permission: undefined })),
+)
 
 export function navItemsFor(user) {
   return modules
     .filter((m) => m.nav && (!m.nav.permission || can(user, m.nav.permission)))
-    .map((m) => m.nav)
+    .map((m) => ({ ...m.nav, soon: !isAvailable(m) }))
     .sort((a, b) => a.order - b.order)
 }
 
 /** Primer destino disponible según el orden de `home` de cada módulo. */
 export function homePathFor(user) {
   const candidates = modules
-    .filter((m) => m.home)
+    .filter((m) => m.home && isAvailable(m))
     .sort((a, b) => a.home.order - b.home.order)
   for (const m of candidates) {
     const path = m.home.path(user)

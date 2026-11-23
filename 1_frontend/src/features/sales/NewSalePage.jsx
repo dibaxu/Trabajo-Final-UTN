@@ -57,9 +57,10 @@ export default function NewSalePage() {
     const product = byId.get(l.productId)
     const qty = parseNumber(l.quantity)
     const price = parseNumber(l.unitPrice)
-    let unitCost = NaN
-    if (l.costChoice === 'manual') unitCost = parseNumber(l.manualCost)
-    else unitCost = estimatesOf(l.productId).find((e) => `est:${e.id}` === l.costChoice)?.result.total ?? NaN
+    const unitCost =
+      l.costChoice === 'manual'
+        ? parseNumber(l.manualCost)
+        : (estimatesOf(l.productId).find((e) => `est:${e.id}` === l.costChoice)?.result.total ?? NaN)
 
     const errors = {}
     if (!Number.isInteger(qty) || qty <= 0) errors.quantity = 'Entero mayor que cero.'

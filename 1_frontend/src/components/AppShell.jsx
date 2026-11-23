@@ -49,9 +49,19 @@ export function AppShell() {
 
           <nav aria-label="Principal" className="order-3 -mx-1 flex w-full gap-1 overflow-x-auto px-1 lg:order-none lg:w-auto">
             {navItemsFor(user).map((item) => (
-              <NavLink key={item.to} to={item.to} className={linkClass}>
-                {item.label}
-              </NavLink>
+              item.soon ? (
+                <span
+                  key={item.to}
+                  title="Todavía no disponible en el servidor"
+                  className="cursor-not-allowed whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium text-ink-400"
+                >
+                  {item.label} <span className="text-[10px] uppercase tracking-wide">pronto</span>
+                </span>
+              ) : (
+                <NavLink key={item.to} to={item.to} className={linkClass}>
+                  {item.label}
+                </NavLink>
+              )
             ))}
           </nav>
 

@@ -8,4 +8,5 @@ export default {
     { path: '/stock/movimientos', Component: MovementsPage, permission: 'stock.movements' },
   ],
   nav: { to: '/stock', label: 'Stock', order: 30 },
+  needs: ['stock'],
 }

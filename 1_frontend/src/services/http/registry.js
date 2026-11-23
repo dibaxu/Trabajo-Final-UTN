@@ -7,6 +7,9 @@ const modules = import.meta.glob('./modules/*.js', { eager: true })
 
 const implemented = Object.assign({ maintenance: { resetDemoData: async () => {} } }, ...Object.values(modules).map((m) => m.default))
 
+/** Nombres de las APIs que el backend real ya implementa (las demás responden 501). */
+export const implementedApis = new Set(Object.keys(implemented))
+
 export const httpApi = new Proxy(implemented, {
   get: (target, name) => target[name] ?? notReady(String(name)),
 })

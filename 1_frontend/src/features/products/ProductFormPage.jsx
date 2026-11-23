@@ -4,6 +4,7 @@ import { api } from '../../services/index.js'
 import { useQuery } from '../../lib/useQuery.js'
 import { parseNumber } from '../../lib/numbers.js'
 import { resizeImage } from '../../lib/image.js'
+import { IS_MOCK } from '../../services/mode.js'
 import { Button, Card, ErrorAlert, PageHeader, QueryState } from '../../components/ui.jsx'
 import { NumericField, SelectField, TextAreaField, TextField } from '../../components/form.jsx'
 import { ProductThumb } from './ProductsPage.jsx'
@@ -13,6 +14,9 @@ const NUMERIC = [
   { key: 'currentCost', label: 'Costo actual', unit: '$', hint: 'Se actualiza al marcar una estimación como vigente. Cambiarlo no altera ventas anteriores.' },
   { key: 'weightGrams', label: 'Peso', unit: 'g' },
 ]
+
+// El backend real todavía no guarda imagen ni peso del producto (solo el modo demo).
+const FIELDS = IS_MOCK ? NUMERIC : NUMERIC.filter((f) => f.key !== 'weightGrams')
 
 const toText = (n) => (n ? String(n) : '')
 
@@ -55,7 +59,7 @@ function ProductForm({ product }) {
     if (!form.name.trim()) next.name = 'El nombre es obligatorio.'
     if (!form.categoryId) next.categoryId = 'Seleccioná una categoría.'
     const payload = { ...form, categoryId: Number(form.categoryId) }
-    for (const f of NUMERIC) {
+    for (const f of FIELDS) {
       const raw = form[f.key].trim()
       const n = raw === '' ? 0 : parseNumber(raw)
       if (Number.isNaN(n)) next[f.key] = 'Ingresá un número válido.'
@@ -96,13 +100,14 @@ function ProductForm({ product }) {
         </div>
         <TextAreaField label="Descripción" value={form.description} onChange={set('description')} maxLength={500} />
         <div className="grid gap-4 sm:grid-cols-3">
-          {NUMERIC.map((f) => (
+          {FIELDS.map((f) => (
             <NumericField key={f.key} label={f.label} unit={f.unit} hint={f.hint} placeholder="0" value={form[f.key]} onChange={set(f.key)} error={errors[f.key]} />
           ))}
         </div>
       </Card>
 
       <div className="space-y-4">
+        {IS_MOCK ? (
         <Card>
           <h2 className="mb-3 text-sm font-semibold text-ink-700">Imagen</h2>
           <div className="flex items-center gap-3">
@@ -121,6 +126,12 @@ function ProductForm({ product }) {
           </div>
           {imageError && <p className="mt-2 text-xs text-red-700">{imageError}</p>}
         </Card>
+        ) : (
+          <Card>
+            <h2 className="mb-1 text-sm font-semibold text-ink-700">Imagen</h2>
+            <p className="text-xs text-ink-500">La carga de imágenes todavía no está disponible en el servidor.</p>
+          </Card>
+        )}
 
         <Card>
           <label className="flex items-center gap-2 text-sm font-medium">

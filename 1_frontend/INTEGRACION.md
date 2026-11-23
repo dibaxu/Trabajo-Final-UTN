@@ -1,6 +1,27 @@
 # Integración con el backend
 
-El frontend consume una capa de servicios (`src/services/index.js`). Con `VITE_API_MODE=mock` esa capa es un backend simulado; con `VITE_API_MODE=http` usa la API real. Hoy el backend solo tiene **auth y usuarios**; el resto responde `501` en modo `http` hasta que se implemente.
+El frontend consume una capa de servicios (`src/services/index.js`). Con `VITE_API_MODE=mock` esa capa es un backend simulado; con `VITE_API_MODE=http` usa la API real. Estado de la conexión con el backend real (`VITE_API_MODE=http`):
+
+| Módulo del frontend | API (`api.…`) | Estado |
+| --- | --- | --- |
+| Acceso, invitaciones y recuperación | `auth` | Conectado |
+| Usuarios | `users` | Conectado |
+| Productos y categorías | `products`, `categories` | Conectado (`services/http/modules/catalog.js`) |
+| Stock (listado, movimientos, producción, ajustes) | `stock` | Conectado (`services/http/modules/stock.js`) |
+| Costos (parámetros y estimaciones) | `costSettings`, `estimates` | Pendiente en el backend |
+| Ventas, anulaciones y devoluciones | `sales` | Pendiente en el backend |
+| Gastos | `expenses` | Pendiente en el backend |
+| Resumen | `reports` | Pendiente en el backend |
+
+Los módulos pendientes aparecen en el menú como "pronto" y sus rutas muestran "Módulo en desarrollo" (se decide con `needs` en cada `module.js`). Al agregar `services/http/modules/<modulo>.js`, el módulo se habilita solo.
+
+Diferencias entre la interfaz y el backend, resueltas en `services/http/adapters.js` (con pruebas):
+
+- El backend rechaza campos desconocidos (`forbidNonWhitelisted`), por eso cada cuerpo se arma campo por campo.
+- El costo del producto se guarda en `manualCost`; la interfaz lo muestra como `currentCost` (0 se envía como `null`).
+- `isActive` de un producto se cambia con `PATCH /products/:id/status`; al editar no se envía en el cuerpo.
+- Todavía no existen en el backend la **imagen** ni el **peso** del producto: en modo `http` el formulario no los muestra.
+- Los movimientos de stock del backend hoy son `PRODUCCION`, `AJUSTE_POSITIVO` y `AJUSTE_NEGATIVO`; `VENTA`, `DEVOLUCION` y `ANULACION` llegarán con ventas.
 
 ## Cómo conectar un módulo (sin tocar las pantallas)
 
